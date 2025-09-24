@@ -44,3 +44,5 @@ next-env.d.ts
 /data/*.json
 # editor
 .vscode/
+
+.cleanup_backup_*
