@@ -1,0 +1,6 @@
+# Normalize text files
+* text=auto
+
+# Force LF (no CRLF) for TypeScript sources
+*.ts  text eol=lf
+*.tsx text eol=lf
