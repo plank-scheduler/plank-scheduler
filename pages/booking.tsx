@@ -1,20 +1,19 @@
-﻿import Head from "next/head";
-import { BRAND } from "../lib/config"; // add this import
+﻿import React from "react";
+import BookingClient from "../components/BookingClient";
+import { BRAND, GREETING } from "../lib/config";
 
 export default function BookingPage() {
   return (
-    <>
-      <Head>
-        <title>{BRAND} | Booking</title>
-      </Head>
+    <main style={{ maxWidth: 1040, margin: "32px auto", padding: "0 16px" }}>
+      <h1 style={{ marginBottom: 8 }}>
+        {BRAND} — Booking
+      </h1>
 
-      <main style={{ maxWidth: 960, margin: "32px auto", padding: 16 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 12 }}>
-          {BRAND} — Booking
-        </h1>
+      <p style={{ marginBottom: 24 }}>
+        {GREETING}
+      </p>
 
-        {/* …rest of the page… */}
-      </main>
-    </>
+      <BookingClient />
+    </main>
   );
 }
