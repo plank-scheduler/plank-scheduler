@@ -1,65 +1,63 @@
-﻿// pages/api/appointments.ts
-import type { NextApiRequest, NextApiResponse } from "next";
+﻿import type { NextApiRequest, NextApiResponse } from "next";
 import fs from "fs/promises";
 import path from "path";
 
 type Apt = {
   id: string;
   customerId: number;
-  date: string; // YYYY-MM-DD
-  time: string; // HH:mm
+  date: string;   // YYYY-MM-DD
+  time: string;   // HH:mm
   plan?: string;
   service?: string;
   notes?: string;
-  createdAt: string; // ISO string
+  createdAt: string; // ISO
 };
 
-type ApiList = { ok: true; data: Apt[] } | { ok: false; error: string };
-type ApiPost =
-  | ({ ok: true } & Apt)
-  | { ok: false; error: string };
-type ApiDelete =
-  | { ok: true; deleted: Apt }
-  | { ok: false; error: string };
+type NewCustomer = { name: string; phone?: string; address?: string };
+type Customer = { id: number } & NewCustomer;
 
 const DATA_DIR = path.join(process.cwd(), "data");
-const FILE = path.join(DATA_DIR, "appointments.json");
+const APT_FILE = path.join(DATA_DIR, "appointments.json");
+const CUST_FILE = path.join(DATA_DIR, "customers.json");
 
-async function ensureStore() {
+async function readJson<T>(file: string, fallback: T): Promise<T> {
+  try {
+    const txt = await fs.readFile(file, "utf8");
+    const v = JSON.parse(txt);
+    return v ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+async function writeJson<T>(file: string, value: T) {
   await fs.mkdir(DATA_DIR, { recursive: true });
-  try {
-    await fs.access(FILE);
-  } catch {
-    await fs.writeFile(FILE, "[]", "utf8");
+  await fs.writeFile(file, JSON.stringify(value, null, 2), "utf8");
+}
+
+async function ensureCustomerId(body: any): Promise<number> {
+  // admin mode: explicit numeric customerId
+  if (typeof body?.customerId === "number" && body.customerId > 0) {
+    return body.customerId;
   }
-}
-
-async function readAll(): Promise<Apt[]> {
-  await ensureStore();
-  try {
-    const txt = await fs.readFile(FILE, "utf8");
-    const arr = JSON.parse(txt);
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
+  // public mode: body.customer {name, phone, address}
+  if (body?.customer?.name) {
+    const all = await readJson<Customer[]>(CUST_FILE, []);
+    const maxId = all.reduce((m, c) => Math.max(m, c.id), 0);
+    const nextId = maxId + 1;
+    const newCust: Customer = {
+      id: nextId,
+      name: String(body.customer.name).trim(),
+      phone: String(body.customer.phone || ""),
+      address: String(body.customer.address || "")
+    };
+    all.push(newCust);
+    await writeJson(CUST_FILE, all);
+    return nextId;
   }
+  throw new Error("Missing customer information.");
 }
 
-async function writeAll(items: Apt[]) {
-  await ensureStore();
-  await fs.writeFile(FILE, JSON.stringify(items, null, 2), "utf8");
-}
-
-function truthy(q: any) {
-  if (q === undefined || q === null) return false;
-  const s = String(q).toLowerCase();
-  return s === "1" || s === "true" || s === "yes" || s === "y";
-}
-
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<ApiList | ApiPost | ApiDelete>
-) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method === "OPTIONS") {
       res.setHeader("Allow", "GET,POST,DELETE,OPTIONS");
@@ -68,69 +66,57 @@ export default async function handler(
 
     if (req.method === "GET") {
       const date = (req.query.date as string) || "";
-      const items = await readAll();
-      const data = date ? items.filter((a) => a.date === date) : items;
-
-      const payload: ApiList = { ok: true, data };
-
-      // pretty print if requested (?pretty=1)
-      if (truthy(req.query.pretty)) {
-        res.setHeader("Content-Type", "application/json; charset=utf-8");
-        return res.status(200).send(JSON.stringify(payload, null, 2) as any);
-      }
-      return res.status(200).json(payload);
+      const all = await readJson<Apt[]>(APT_FILE, []);
+      const data = date ? all.filter((a) => a.date === date) : all;
+      return res.status(200).json({ ok: true, data });
     }
 
     if (req.method === "POST") {
-      const { customerId, date, time, plan, service, notes } = req.body || {};
-      if (!customerId) return res.status(400).json({ ok: false, error: "Missing customerId" } as any);
-      if (!date) return res.status(400).json({ ok: false, error: "Missing date" } as any);
-      if (!time) return res.status(400).json({ ok: false, error: "Missing time" } as any);
+      const { date, time, plan, service, notes } = req.body || {};
+      if (!date) return res.status(400).json({ ok: false, error: "Missing date" });
+      if (!time) return res.status(400).json({ ok: false, error: "Missing time" });
 
-      const items = await readAll();
-      // conflict: same date & time
-      if (items.some((a) => a.date === date && a.time === time)) {
-        return res.status(409).json({ ok: false, error: "That time is already booked." } as any);
+      const customerId = await ensureCustomerId(req.body);
+      const all = await readJson<Apt[]>(APT_FILE, []);
+
+      // conflict check: same date+time already taken
+      if (all.some((a) => a.date === date && a.time === time)) {
+        return res.status(409).json({ ok: false, error: "That time is already booked." });
       }
 
-      const id = `apt_${Date.now()}`;
-      const createdAt = new Date().toISOString();
       const apt: Apt = {
-        id,
-        customerId: Number(customerId),
-        date,
-        time,
-        plan,
-        service,
-        notes,
-        createdAt,
+        id: `apt_${Date.now()}`,
+        customerId,
+        date: String(date),
+        time: String(time),
+        plan: plan ? String(plan) : undefined,
+        service: service ? String(service) : undefined,
+        notes: notes ? String(notes) : undefined,
+        createdAt: new Date().toISOString()
       };
 
-      items.push(apt);
-      await writeAll(items);
-
-      const payload: ApiPost = { ok: true, ...apt };
-      return res.status(200).json(payload);
+      all.push(apt);
+      await writeJson(APT_FILE, all);
+      return res.status(200).json({ ok: true, ...apt });
     }
 
     if (req.method === "DELETE") {
       const id = (req.query.id as string) || (req.body ? req.body.id : "");
-      if (!id) return res.status(400).json({ ok: false, error: "Missing id" } as any);
+      if (!id) return res.status(400).json({ ok: false, error: "Missing id" });
 
-      const items = await readAll();
-      const idx = items.findIndex((a) => a.id === id);
-      if (idx === -1) return res.status(404).json({ ok: false, error: "Not found" } as any);
+      const all = await readJson<Apt[]>(APT_FILE, []);
+      const idx = all.findIndex((a) => a.id === id);
+      if (idx === -1) return res.status(404).json({ ok: false, error: "Not found" });
 
-      const [deleted] = items.splice(idx, 1);
-      await writeAll(items);
+      const [deleted] = all.splice(idx, 1);
+      await writeJson(APT_FILE, all);
       return res.status(200).json({ ok: true, deleted });
     }
 
     res.setHeader("Allow", "GET,POST,DELETE,OPTIONS");
-    return res.status(405).json({ ok: false, error: "Method Not Allowed" } as any);
+    return res.status(405).json({ ok: false, error: "Method Not Allowed" });
   } catch (e: any) {
     console.error(e);
-    return res.status(500).json({ ok: false, error: String(e?.message || e) } as any);
+    return res.status(500).json({ ok: false, error: String(e?.message || e) });
   }
 }
-
