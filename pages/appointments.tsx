@@ -1,57 +1,48 @@
-﻿import React, { useEffect, useState } from "react";
+﻿// pages/appointments.tsx
+import React, { useEffect, useState } from "react";
 
 type Apt = {
   id: string;
   customerId: number;
-  date: string;      // YYYY-MM-DD
-  time: string;      // HH:mm
+  date: string;
+  time: string;
+  plan?: string;
   service?: string;
   notes?: string;
-  createdAt: string; // ISO string
+  createdAt: string;
 };
 
 type ApiList = { ok: true; data: Apt[] } | { ok: false; error: string };
 type ApiDelete = { ok: true; deleted: Apt } | { ok: false; error: string };
 
-function isoToPrettyDate(isoDate: string) {
+function isoToPrettyDate(iso: string) {
   try {
-    const [y, m, d] = isoDate.split("-").map(Number);
+    const [y, m, d] = iso.split("-").map(Number);
     const dt = new Date(Date.UTC(y, m - 1, d));
-    return dt.toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
+    return dt.toLocaleDateString();
   } catch {
-    return isoDate;
+    return iso;
   }
 }
 
 export default function AppointmentsPage() {
-  const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<Apt[]>([]);
-  const [error, setError] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   async function load() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/appointments", { method: "GET" });
-      const json = (await res.json()) as ApiList;
-
-      if (!("ok" in json) || json.ok !== true) {
-        const msg = ("error" in json && json.error) || "Failed to load";
-        throw new Error(msg);
-      }
-
-      const sorted = [...json.data].sort((a, b) => {
-        const aKey = `${a.date} ${a.time}`;
-        const bKey = `${b.date} ${b.time}`;
-        return aKey.localeCompare(bKey);
-      });
+      const r = await fetch("/api/appointments");
+      const j = (await r.json()) as ApiList;
+      if (!("ok" in j) || !j.ok) throw new Error((j as any).error || "Failed to load");
+      const sorted = [...j.data].sort((a, b) =>
+        `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)
+      );
       setItems(sorted);
     } catch (e: any) {
-      setError(String((e as any)?.message ?? e));
+      setError(String(e?.message || e));
     } finally {
       setLoading(false);
     }
@@ -59,24 +50,18 @@ export default function AppointmentsPage() {
 
   async function cancel(id: string) {
     if (!id) return;
-    if (!window.confirm("Cancel this appointment?")) return;
-
+    if (!confirm("Cancel this appointment?")) return;
     try {
-      const res = await fetch("/api/appointments", {
+      const r = await fetch("/api/appointments", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
-      const json = (await res.json()) as ApiDelete;
-
-      if (!("ok" in json) || json.ok !== true) {
-        const msg = ("error" in json && json.error) || "Failed to cancel";
-        throw new Error(msg);
-      }
-
-      setItems(prev => prev.filter(a => a.id !== id));
+      const j = (await r.json()) as ApiDelete;
+      if (!("ok" in j) || !j.ok) throw new Error((j as any).error || "Cancel failed");
+      setItems((prev) => prev.filter((a) => a.id !== id));
     } catch (e: any) {
-      alert(`Cancel failed: ${String((e as any)?.message ?? e)}`);
+      alert(`Cancel failed: ${String(e?.message || e)}`);
     }
   }
 
@@ -85,7 +70,7 @@ export default function AppointmentsPage() {
   }, []);
 
   return (
-    <div style={{ maxWidth: 900, margin: "40px auto", padding: "0 16px" }}>
+    <div style={{ maxWidth: 980, margin: "40px auto", padding: "0 16px" }}>
       <h1 style={{ marginBottom: 16 }}>Booked Appointments</h1>
 
       <button
@@ -103,7 +88,7 @@ export default function AppointmentsPage() {
       </button>
 
       {error ? (
-        <p style={{ color: "crimson", marginTop: 16 }}>{error}</p>
+        <p style={{ color: "crimson", marginTop: 12 }}>{error}</p>
       ) : null}
 
       <div style={{ marginTop: 20 }}>
@@ -124,6 +109,7 @@ export default function AppointmentsPage() {
               >
                 <div style={{ fontWeight: 600, marginBottom: 6 }}>
                   {isoToPrettyDate(a.date)} at {a.time}
+                  {a.plan ? ` • ${a.plan}` : ""}
                   {a.service ? ` • ${a.service}` : ""}
                 </div>
                 <div style={{ marginBottom: 6 }}>

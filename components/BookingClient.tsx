@@ -1,281 +1,240 @@
 ﻿// components/BookingClient.tsx
-
 import React, { useEffect, useMemo, useState } from "react";
-import { BRAND, GREETING, PLANS, SERVICES } from "../lib/config";
+import { BRAND, GREETING, PLAN_OPTIONS, SERVICE_OPTIONS } from "../lib/config";
 
-type Customer = { id: number; name: string; account?: string };
-type Availability = { time: string }[];
+type Customer = { id: number; name: string; code: string };
+type CustomersResp =
+  | { ok: true; data: Customer[] }
+  | { ok: false; error: string };
 
-type Booked = {
-  id: string;
-  customerId: number;
-  date: string; // YYYY-MM-DD
-  time: string; // HH:mm
-  service?: string;
-  notes?: string;
-  createdAt: string;
-};
+type AvailabilityResp =
+  | { ok: true; data: string[] } // times (HH:mm)
+  | { ok: false; error: string };
 
-function fmtDate(d: string) {
-  try {
-    const [y, m, dd] = d.split("-").map((n) => parseInt(n, 10));
-    return new Date(y, m - 1, dd).toLocaleDateString();
-  } catch {
-    return d;
-  }
-}
+type PostResp =
+  | {
+      ok: true;
+      id: string;
+      customerId: number;
+      date: string;
+      time: string;
+      service?: string;
+      plan?: string;
+      notes?: string;
+      createdAt: string;
+    }
+  | { ok: false; error: string };
 
-function todayISO() {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const dd = String(now.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
+const fmtDate = (d: Date) =>
+  new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+    .toISOString()
+    .slice(0, 10);
 
 export default function BookingClient() {
-  // UI state
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [customerId, setCustomerId] = useState<number | null>(null);
-  const [date, setDate] = useState<string>(todayISO());
-  const [planId, setPlanId] = useState<string>("initial");
-  const [serviceId, setServiceId] = useState<string>("general");
+  const [customerId, setCustomerId] = useState<number | "">("");
+  const [date, setDate] = useState<string>(fmtDate(new Date()));
+  const [plan, setPlan] = useState<string>(PLAN_OPTIONS[0].value);
+  const [service, setService] = useState<string>(SERVICE_OPTIONS[0].value);
   const [notes, setNotes] = useState<string>("");
-  const [availability, setAvailability] = useState<Availability>([]);
-  const [busy, setBusy] = useState(false);
+
+  const [times, setTimes] = useState<string[]>([]);
+  const [loadingAvail, setLoadingAvail] = useState(false);
   const [message, setMessage] = useState<string>("");
 
-  // Fetch customers once
+  // Load customers (mock API in project)
   useEffect(() => {
     (async () => {
-      try {
-        const res = await fetch("/api/customers?limit=50");
-        const j = await res.json();
-        const list: Customer[] = j?.data || [];
-        setCustomers(list);
-        if (list.length && customerId == null) setCustomerId(list[0].id);
-      } catch (e) {
-        console.error(e);
+      const r = await fetch("/api/customers?limit=10");
+      const j = (await r.json()) as CustomersResp;
+      if ("ok" in j && j.ok) {
+        setCustomers(j.data);
+        if (j.data.length && customerId === "") {
+          setCustomerId(j.data[0].id);
+        }
       }
     })();
   }, []);
 
-  // Availability on date change
-  useEffect(() => {
-    (async () => {
-      setBusy(true);
-      try {
-        const res = await fetch(`/api/availability?date=${encodeURIComponent(date)}`);
-        const j = await res.json();
-        setAvailability(j?.data || []);
-      } catch (e) {
-        console.error(e);
-        setAvailability([]);
-      } finally {
-        setBusy(false);
-      }
-    })();
-  }, [date]);
-
-  const planLabel = useMemo(
-    () => PLANS.find((p) => p.id === planId)?.label ?? "",
-    [planId]
-  );
-
-  const serviceLabel = useMemo(
-    () => SERVICES.find((s) => s.id === serviceId)?.label ?? "",
-    [serviceId]
-  );
+  async function checkAvailability() {
+    setTimes([]);
+    setMessage("");
+    setLoadingAvail(true);
+    try {
+      const r = await fetch(`/api/availability?date=${encodeURIComponent(date)}`);
+      const j = (await r.json()) as AvailabilityResp;
+      if (!("ok" in j) || !j.ok) throw new Error("Failed to load availability");
+      setTimes(j.data);
+    } catch (e: any) {
+      setMessage(`Availability error: ${String(e?.message || e)}`);
+    } finally {
+      setLoadingAvail(false);
+    }
+  }
 
   async function book(time: string) {
-    if (!customerId) {
-      setMessage("Please select a customer.");
-      return;
-    }
-    setBusy(true);
     setMessage("");
     try {
-      // We do NOT change the API shape; include the Plan in notes for now.
-      const mergedNotes = planLabel
-        ? `[Plan: ${planLabel}] ${notes}`.trim()
-        : notes.trim();
-
-      const res = await fetch("/api/appointments", {
+      const r = await fetch("/api/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerId,
           date,
           time,
-          service: serviceLabel || undefined,
-          notes: mergedNotes || undefined,
+          plan,
+          service,
+          notes,
         }),
       });
-
-      const j = await res.json();
-      if (!res.ok || !j?.ok) {
-        const err = j?.error || `Unable to book ${time}.`;
-        setMessage(err);
-        return;
-      }
-
+      const j = (await r.json()) as PostResp;
+      if (!("ok" in j) || !j.ok) throw new Error((j as any).error || "Booking failed");
       setMessage(
-        `Booked ${j?.id ? `#${j.id}` : "appointment"} for ${fmtDate(date)} at ${time}.`
+        `Booked #${j.id} for ${j.date} at ${j.time}${
+          j.plan ? ` — ${j.plan}` : ""
+        }${j.service ? ` — ${j.service}` : ""}`
       );
-
-      // Refresh availability after booking (slot becomes unavailable)
-      const av = await fetch(`/api/availability?date=${encodeURIComponent(date)}`);
-      const aj = await av.json();
-      setAvailability(aj?.data || []);
     } catch (e: any) {
-      console.error(e);
-      setMessage(String(e?.message || e));
-    } finally {
-      setBusy(false);
+      setMessage(`Error: ${String(e?.message || e)}`);
     }
   }
 
-  return (
-    <div style={{ maxWidth: 920, margin: "0 auto" }}>
-      {/* Top header + greeting (title will be set by the page) */}
-      <p style={{ marginTop: 10, color: "#222" }}>{GREETING}</p>
-
-      {/* Inline “last action” message */}
-      {message ? (
-        <div
-          style={{
-            margin: "10px 0 20px",
-            padding: "8px 10px",
-            background: message.startsWith("Booked") ? "#efffee" : "#fff6f6",
-            border: "1px solid #ddd",
-          }}
-        >
-          {message}
-        </div>
-      ) : null}
-
-      <h2 style={{ marginTop: 20 }}>Plank Scheduler — Booking</h2>
-
-      {/* Customer */}
-      <label style={{ display: "block", marginTop: 15, fontWeight: 600 }}>
-        Customer
-      </label>
+  const CustomerSelect = useMemo(() => {
+    return (
       <select
-        value={customerId ?? ""}
+        value={customerId}
         onChange={(e) => setCustomerId(Number(e.target.value))}
         style={{ width: "100%", padding: 8 }}
       >
         {customers.map((c) => (
           <option key={c.id} value={c.id}>
-            {c.name}
-            {c.account ? ` — ${c.account}` : ""}
+            {c.name} — {c.code}
           </option>
         ))}
       </select>
+    );
+  }, [customers, customerId]);
 
-      {/* Date */}
-      <label style={{ display: "block", marginTop: 15, fontWeight: 600 }}>
-        Date
-      </label>
-      <input
-        type="date"
-        value={date}
-        onChange={(e) => setDate(e.target.value)}
-        style={{ width: 200, padding: 8 }}
-      />
+  return (
+    <div style={{ maxWidth: 980, margin: "0 auto", padding: "24px 16px" }}>
+      <h1 style={{ margin: "0 0 8px" }}>{BRAND} — Booking</h1>
+      <p style={{ margin: "0 0 24px" }}>{GREETING}</p>
 
-      {/* Plan */}
-      <label style={{ display: "block", marginTop: 15, fontWeight: 600 }}>
-        Plan
-      </label>
-      <select
-        value={planId}
-        onChange={(e) => setPlanId(e.target.value)}
-        style={{ width: 260, padding: 8 }}
-      >
-        {PLANS.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.label}
-          </option>
-        ))}
-      </select>
+      {message ? (
+        <div style={{ color: "green", marginBottom: 12 }}>✅ {message}</div>
+      ) : null}
 
-      {/* Service */}
-      <label style={{ display: "block", marginTop: 15, fontWeight: 600 }}>
-        Service
-      </label>
-      <select
-        value={serviceId}
-        onChange={(e) => setServiceId(e.target.value)}
-        style={{ width: 360, padding: 8 }}
-      >
-        {SERVICES.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.label}
-          </option>
-        ))}
-      </select>
+      <div style={{ marginBottom: 12 }}>
+        <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>
+          Customer
+        </label>
+        {CustomerSelect}
+      </div>
 
-      {/* Notes */}
-      <label style={{ display: "block", marginTop: 15, fontWeight: 600 }}>
-        Notes
-      </label>
-      <textarea
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        placeholder="Gate code, pet info, special instructions…"
-        rows={4}
-        style={{ width: "100%", padding: 8 }}
-      />
+      <div style={{ marginBottom: 12 }}>
+        <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>
+          Date
+        </label>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          style={{ padding: 8 }}
+        />
+      </div>
 
-      {/* Availability */}
+      <div style={{ marginBottom: 12 }}>
+        <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>
+          Plan
+        </label>
+        <select
+          value={plan}
+          onChange={(e) => setPlan(e.target.value)}
+          style={{ width: 280, padding: 8 }}
+        >
+          {PLAN_OPTIONS.map((p) => (
+            <option key={p.value} value={p.value}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div style={{ marginBottom: 12 }}>
+        <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>
+          Service
+        </label>
+        <select
+          value={service}
+          onChange={(e) => setService(e.target.value)}
+          style={{ width: 320, padding: 8 }}
+        >
+          {SERVICE_OPTIONS.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div style={{ marginBottom: 12 }}>
+        <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>
+          Notes
+        </label>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Gate code, pet info, special instructions…"
+          rows={3}
+          style={{ width: "100%", padding: 8 }}
+        />
+      </div>
+
       <button
-        disabled={busy}
-        onClick={async () => {
-          setBusy(true);
-          try {
-            const res = await fetch(
-              `/api/availability?date=${encodeURIComponent(date)}`
-            );
-            const j = await res.json();
-            setAvailability(j?.data || []);
-          } finally {
-            setBusy(false);
-          }
-        }}
+        onClick={checkAvailability}
+        disabled={loadingAvail}
         style={{
-          display: "block",
           width: "100%",
-          margin: "16px 0 12px",
-          padding: "10px 12px",
+          padding: "10px 14px",
+          borderRadius: 6,
+          border: "1px solid #ccc",
+          background: "#f5f5f5",
+          cursor: "pointer",
         }}
       >
-        Check availability
+        {loadingAvail ? "Loading…" : "Check availability"}
       </button>
 
-      <div style={{ marginTop: 10 }}>
-        <div style={{ fontWeight: 700, marginBottom: 8 }}>Available times</div>
-        {availability?.length ? (
-          availability.map((slot) => (
-            <button
-              key={slot.time}
-              disabled={busy}
-              onClick={() => book(slot.time)}
-              style={{ marginRight: 8, padding: "6px 12px" }}
-              title={`Book ${fmtDate(date)} at ${slot.time}`}
-            >
-              {slot.time}
-            </button>
-          ))
+      <div style={{ marginTop: 20 }}>
+        <h3 style={{ margin: "12px 0" }}>Available times</h3>
+        {times.length === 0 ? (
+          <div>No open times for {new Date(date).toLocaleDateString()}.</div>
         ) : (
-          <div>No open times for {fmtDate(date)}.</div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {times.map((t) => (
+              <button
+                key={t}
+                onClick={() => book(t)}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 6,
+                  border: "1px solid #ccc",
+                  background: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
         )}
       </div>
 
-      <div style={{ marginTop: 36, color: "#666", fontSize: 13 }}>
+      <div style={{ marginTop: 40, fontSize: 12, color: "#666" }}>
         Serving South Central Missouri • {BRAND}
       </div>
     </div>
   );
 }
+
 
