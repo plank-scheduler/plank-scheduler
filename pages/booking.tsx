@@ -1,19 +1,22 @@
-﻿import React from "react";
+﻿// pages/booking.tsx
+
+import Head from "next/head";
 import BookingClient from "../components/BookingClient";
-import { BRAND, GREETING } from "../lib/config";
+import { BRAND } from "../lib/config";
 
 export default function BookingPage() {
   return (
-    <main style={{ maxWidth: 1040, margin: "32px auto", padding: "0 16px" }}>
-      <h1 style={{ marginBottom: 8 }}>
-        {BRAND} — Booking
-      </h1>
+    <>
+      <Head>
+        <title>{BRAND} — Booking</title>
+      </Head>
 
-      <p style={{ marginBottom: 24 }}>
-        {GREETING}
-      </p>
-
-      <BookingClient />
-    </main>
+      <main style={{ maxWidth: 1100, margin: "40px auto", padding: "0 16px" }}>
+        <h1 style={{ fontSize: 28, margin: "0 0 12px" }}>
+          {BRAND} — Booking
+        </h1>
+        <BookingClient />
+      </main>
+    </>
   );
 }
