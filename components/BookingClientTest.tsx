@@ -2,11 +2,24 @@ console.log("TEST COMPONENT LOADED");
 
 import React, { useEffect, useMemo, useState } from "react";
 import SiteHeader from "./SiteHeader";
-import { GREETING, PLAN_OPTIONS, SERVICE_GROUPS, BOOKING_MODE } from "../lib/config";
+import {
+  GREETING,
+  PLAN_OPTIONS,
+  SERVICE_GROUPS,
+  BOOKING_MODE,
+} from "../lib/config";
 
-type Customer = { id: number; name: string; code?: string; phone?: string; address?: string };
+type Customer = {
+  id: number;
+  name: string;
+  code?: string;
+  phone?: string;
+  address?: string;
+};
 
-type CustomersResp = { ok: true; data: Customer[] } | { ok: false; error: string };
+type CustomersResp =
+  | { ok: true; data: Customer[] }
+  | { ok: false; error: string };
 
 type UploadResp = { ok: true; url: string } | { ok: false; error: string };
 
@@ -112,7 +125,9 @@ export default function BookingClient() {
     if (!preferredTime) return "Please choose a preferred time.";
     if (!plan) return "Please select a service frequency.";
 
-    const pickedAnyService = service || insulationService || lawnCare || holidayLighting;
+    const pickedAnyService =
+      service || insulationService || lawnCare || holidayLighting;
+
     if (!pickedAnyService) return "Please select at least one service.";
 
     if (service === "other" && !otherDetail.trim()) {
@@ -135,26 +150,30 @@ export default function BookingClient() {
     const uploadedUrls: string[] = [];
 
     for (const file of photoFiles) {
-      const base64 = await fileToBase64(file);
+      try {
+        const base64 = await fileToBase64(file);
 
-      const r = await fetch("/api/upload-photo", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fileName: file.name,
-          base64,
-        }),
-      });
+        const r = await fetch("/api/upload-photo", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            fileName: file.name,
+            base64,
+          }),
+        });
 
-      const j = (await r.json()) as UploadResp;
+        const j = (await r.json()) as UploadResp;
 
-      if (!("ok" in j) || !j.ok) {
-        throw new Error((j as any).error || "Photo upload failed");
+        if ("ok" in j && j.ok) {
+          uploadedUrls.push(j.url);
+        } else {
+          console.warn("Photo upload skipped:", (j as any).error);
+        }
+      } catch (err) {
+        console.warn("Photo upload failed, continuing without photo:", err);
       }
-
-      uploadedUrls.push(j.url);
     }
 
     return uploadedUrls;
@@ -232,9 +251,9 @@ export default function BookingClient() {
       setMessage("Request submitted successfully.");
       setMsgKind("success");
 
-      window.location.href = `/thanks?date=${encodeURIComponent(j.date)}&time=${encodeURIComponent(
-        j.time
-      )}`;
+      window.location.href = `/thanks?date=${encodeURIComponent(
+        j.date
+      )}&time=${encodeURIComponent(j.time)}`;
     } catch (e: any) {
       setMessage(`Error: ${String(e?.message || e)}`);
       setMsgKind("error");
@@ -277,7 +296,12 @@ export default function BookingClient() {
       {message ? (
         <div
           style={{
-            color: msgKind === "error" ? "crimson" : msgKind === "success" ? "green" : "#333",
+            color:
+              msgKind === "error"
+                ? "crimson"
+                : msgKind === "success"
+                ? "green"
+                : "#333",
             marginBottom: 12,
             fontWeight: 600,
           }}
@@ -288,13 +312,17 @@ export default function BookingClient() {
 
       {BOOKING_MODE === "admin" ? (
         <div style={{ marginBottom: 12 }}>
-          <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>Customer</label>
+          <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>
+            Customer
+          </label>
           {CustomerSelect}
         </div>
       ) : (
         <div>
           <div style={{ marginBottom: 12 }}>
-            <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>Your name</label>
+            <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>
+              Your name
+            </label>
             <input
               value={publicName}
               onChange={(e) => setPublicName(e.target.value)}
@@ -304,7 +332,9 @@ export default function BookingClient() {
           </div>
 
           <div style={{ marginBottom: 12 }}>
-            <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>Phone</label>
+            <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>
+              Phone
+            </label>
             <input
               value={publicPhone}
               onChange={(e) => setPublicPhone(e.target.value)}
@@ -314,7 +344,9 @@ export default function BookingClient() {
           </div>
 
           <div style={{ marginBottom: 12 }}>
-            <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>Address</label>
+            <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>
+              Address
+            </label>
             <input
               value={publicAddress}
               onChange={(e) => setPublicAddress(e.target.value)}
@@ -353,7 +385,9 @@ export default function BookingClient() {
           </div>
 
           <div style={{ marginBottom: 12 }}>
-            <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>Email</label>
+            <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>
+              Email
+            </label>
             <input
               value={publicEmail}
               onChange={(e) => setPublicEmail(e.target.value)}
@@ -374,7 +408,9 @@ export default function BookingClient() {
         }}
       >
         <div style={{ minWidth: 0 }}>
-          <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>Date</label>
+          <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>
+            Date
+          </label>
           <input
             type="date"
             value={date}
@@ -384,7 +420,9 @@ export default function BookingClient() {
         </div>
 
         <div style={{ minWidth: 0 }}>
-          <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>Preferred Time</label>
+          <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>
+            Preferred Time
+          </label>
           <select
             value={preferredTime}
             onChange={(e) => setPreferredTime(e.target.value)}
@@ -468,11 +506,13 @@ export default function BookingClient() {
             style={{ width: "100%", padding: 10, boxSizing: "border-box" }}
           >
             <option value="">— Select insulation service —</option>
-            {SERVICE_GROUPS.find((g) => g.group === "Insulation")?.options.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
+            {SERVICE_GROUPS.find((g) => g.group === "Insulation")?.options.map(
+              (o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              )
+            )}
           </select>
         </div>
 
@@ -487,11 +527,13 @@ export default function BookingClient() {
             style={{ width: "100%", padding: 10, boxSizing: "border-box" }}
           >
             <option value="">— Select lawn service —</option>
-            {SERVICE_GROUPS.find((g) => g.group === "Lawn Care")?.options.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
+            {SERVICE_GROUPS.find((g) => g.group === "Lawn Care")?.options.map(
+              (o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              )
+            )}
           </select>
         </div>
 
@@ -506,13 +548,13 @@ export default function BookingClient() {
             style={{ width: "100%", padding: 10, boxSizing: "border-box" }}
           >
             <option value="">— Select lighting service —</option>
-            {SERVICE_GROUPS.find((g) => g.group === "Holiday / Seasonal Lighting")?.options.map(
-              (o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              )
-            )}
+            {SERVICE_GROUPS.find(
+              (g) => g.group === "Holiday / Seasonal Lighting"
+            )?.options.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -532,7 +574,9 @@ export default function BookingClient() {
       ) : null}
 
       <div style={{ marginBottom: 12 }}>
-        <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>Notes</label>
+        <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>
+          Notes
+        </label>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -548,8 +592,8 @@ export default function BookingClient() {
         </label>
 
         <div style={{ fontSize: 12, marginBottom: 6 }}>
-          Add up to 3 photos of pests, damage, droppings, insulation, lawn issues, or lighting
-          problems.
+          Add up to 3 photos. If upload is unavailable, your request will still
+          submit normally.
         </div>
 
         <input
