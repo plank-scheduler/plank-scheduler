@@ -1,0 +1,57 @@
+﻿import nodemailer from "nodemailer";
+import twilio from "twilio";
+
+function mailer() {
+  const port = Number(process.env.SMTP_PORT || 587);
+  if (!process.env.SMTP_HOST) throw new Error("SMTP not configured");
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST!,
+    port,
+    secure: port === 465,
+    auth: process.env.SMTP_USER
+      ? { user: process.env.SMTP_USER!, pass: process.env.SMTP_PASS! }
+      : undefined,
+  });
+}
+
+async function sendEmail(text: string, subject: string) {
+  const to = process.env.NOTIFY_TO!;
+  const from = process.env.NOTIFY_FROM || process.env.SMTP_USER || to;
+  await mailer().sendMail({ to, from, subject, text });
+}
+
+async function sendSMS(text: string) {
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  const from = process.env.TWILIO_FROM;
+  const to = process.env.TWILIO_TO;
+  if (!sid || !token || !from || !to) return; // silently skip if not configured
+  const client = twilio(sid, token);
+  await client.messages.create({ from, to, body: text });
+}
+
+export async function notifyNewRequest(data: any) {
+  const subject = `New booking request: ${[
+    data.service,
+    data.date,
+    data.time,
+  ].filter(Boolean).join(" — ")}`;
+
+  const text = `New booking request
+
+Name:    ${data.customer?.name || ""}
+Phone:   ${data.customer?.phone || ""}
+Address: ${data.customer?.address || ""}
+Email:   ${data.customer?.email || ""}
+
+Date: ${data.date}
+Preferred time: ${data.time}
+Plan: ${data.plan || ""}
+Service: ${data.service || ""}
+Notes: ${data.notes || ""}
+
+Status: pending — please call/text/email to confirm with the customer.`;
+
+  try { await sendEmail(text, subject); } catch {}
+  try { await sendSMS(text); } catch {}
+}

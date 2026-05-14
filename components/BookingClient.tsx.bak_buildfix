@@ -8,9 +8,19 @@ function buildSuccessBanner(id: string | null, dateTxt?: string | null, timeTxt?
   const timePart = (timeTxt && String(timeTxt).trim()) ? String(timeTxt) : "your preferred time";
   return `Request sent${idPart}. We will contact you to confirm ${datePart} at ${timePart}.`;
 }
-
 type Customer = { id: number; name: string; code?: string; phone?: string; address?: string };
 type CustomersResp = { ok: true; data: Customer[] } | { ok: false; error: string };
+type PostResp =
+  | {
+      ok: true;
+      id: string;
+      date: string;
+      time: string;
+      plan?: string;
+      service?: string;
+      status: "pending" | "confirmed";
+    }
+  | { ok: false; error: string };
 
 const fmtDate = (d: Date) =>
   new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())).toISOString().slice(0, 10);
@@ -37,6 +47,7 @@ function toAmPm(hhmm: string) {
 }
 
 function isWithinWindow(hhmm: string, min = "07:30", max = "18:00") {
+  // simple string compare works for HH:MM 24h
   return hhmm >= min && hhmm <= max;
 }
 
@@ -51,7 +62,7 @@ export default function BookingClient() {
   const [publicEmail, setPublicEmail] = useState("");
 
   const [date, setDate] = useState<string>(fmtDate(new Date()));
-  const [time, setTime] = useState<string>("");
+  const [time, setTime] = useState<string>(""); // 24h HH:MM from input[type=time]
   const [plan, setPlan] = useState<string>("");
   const [service, setService] = useState<string>("");
   const [otherDetail, setOtherDetail] = useState<string>("");
@@ -107,13 +118,9 @@ export default function BookingClient() {
         ? `Other — ${otherDetail.trim()}`
         : service;
 
-    // Snapshot BEFORE any resets
-    const sentDate = date;
-    const sentTime = toAmPm(time);
-
-    const payload =
+    const body =
       BOOKING_MODE === "admin"
-        ? { customerId, date, time: sentTime, plan, service: serviceToSend, notes }
+        ? { customerId, date, time: toAmPm(time), plan, service: serviceToSend, notes }
         : {
             customer: {
               name: publicName.trim(),
@@ -122,7 +129,7 @@ export default function BookingClient() {
               email: publicEmail.trim(),
             },
             date,
-            time: sentTime,
+            time: toAmPm(time),
             plan,
             service: serviceToSend,
             notes,
@@ -130,21 +137,27 @@ export default function BookingClient() {
 
     try {
       const res = await fetch("/api/appointments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload),
+});
+let data: any = {};
+try {
+  const ct = res.headers.get("content-type") || "";
+  data = ct.includes("application/json") ? await res.json() : {};
+} catch {}
+const __messageId = data?.messageId ?? null;
+const __dateShown = (payload as any)?.date ?? (typeof date !== "undefined" ? (date as any) : null);
+const __timeShown = (payload as any)?.time ?? (typeof time !== "undefined" ? (time as any) : null);
+const __successText = buildSuccessBanner(__messageId, __dateShown as any, __timeShown as any);
+if (typeof setStatus === "function") if (typeof setBanner === "function") const j = (await r.json()) as PostResp;
+      if (!("ok" in j) || !j.ok) throw new Error((j as any).error || "Request failed");
 
-      let data: any = {};
-      try {
-        const ct = res.headers.get("content-type") || "";
-        data = ct.includes("application/json") ? await res.json() : {};
-      } catch {}
-
-      const messageId: string | null = data?.messageId ?? null;
-      const banner = buildSuccessBanner(messageId, sentDate, sentTime);
-
-      setMessage(banner);
+      setMessage(
+        `Request sent — #${j.id}. We will contact you to confirm ${j.date} at ${j.time}${
+          j.plan ? ` — ${j.plan}` : ""
+        }${j.service ? ` — ${j.service}` : ""}.`
+      );
       setMsgKind("success");
     } catch (e: any) {
       setMessage(`Error: ${String(e?.message || e)}`);
@@ -323,3 +336,7 @@ export default function BookingClient() {
     </div>
   );
 }
+
+
+
+

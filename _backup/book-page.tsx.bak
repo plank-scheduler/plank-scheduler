@@ -1,0 +1,175 @@
+﻿"use client";
+import React, { useState } from "react";
+
+type FormData = {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  plan: string;
+  service: string;
+  date: string;
+  time: string;
+  notes: string;
+  company?: string; // honeypot
+};
+
+export default function BookPage() {
+  const [data, setData] = useState<FormData>({
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    plan: "Initial",
+    service: "General Pest",
+    date: "",
+    time: "",
+    notes: "",
+    company: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [ok, setOk] = useState<boolean | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  function onChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
+    const { name, value } = e.target;
+    setData((d) => ({ ...d, [name]: value }));
+  }
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setOk(null);
+    setErr(null);
+
+    try {
+      // Basic bot trap: if "company" is filled, bail
+      if (data.company && data.company.trim().length > 0) {
+        setErr("Submission blocked.");
+        setSubmitting(false);
+        return;
+      }
+
+      const res = await fetch("/api/appointments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          address: data.address,
+          plan: data.plan,
+          service: data.service,
+          date: data.date,
+          time: data.time,
+          notes: data.notes,
+        }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "Failed to submit");
+      }
+      setOk(true);
+    } catch (e: any) {
+      setOk(false);
+      setErr(e?.message || "Something went wrong");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (ok) {
+    return (
+      <main style={{ padding: "2rem", maxWidth: 720, margin: "0 auto" }}>
+        <h1>Thanks! We received your request.</h1>
+        <p>We just emailed the details to the office. We’ll reach out to confirm.</p>
+      </main>
+    );
+  }
+
+  return (
+    <main style={{ padding: "2rem", maxWidth: 720, margin: "0 auto" }}>
+      <h1 style={{ marginBottom: 8 }}>Book a Service</h1>
+      <p style={{ marginBottom: 24 }}>Plank Pest — request a service window and we’ll confirm by email.</p>
+
+      <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
+        {/* Honeypot */}
+        <input
+          name="company"
+          value={data.company}
+          onChange={onChange}
+          autoComplete="off"
+          style={{ display: "none" }}
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+
+        <label>
+          Name
+          <input required name="name" value={data.name} onChange={onChange} />
+        </label>
+
+        <label>
+          Email
+          <input required type="email" name="email" value={data.email} onChange={onChange} />
+        </label>
+
+        <label>
+          Phone
+          <input required name="phone" value={data.phone} onChange={onChange} />
+        </label>
+
+        <label>
+          Address
+          <input required name="address" value={data.address} onChange={onChange} />
+        </label>
+
+        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr" }}>
+          <label>
+            Plan
+            <select name="plan" value={data.plan} onChange={onChange}>
+              <option>Initial</option>
+              <option>Quarterly</option>
+              <option>Monthly</option>
+              <option>One-Time</option>
+            </select>
+          </label>
+
+          <label>
+            Service
+            <select name="service" value={data.service} onChange={onChange}>
+              <option>General Pest</option>
+              <option>Termite</option>
+              <option>Mosquito</option>
+              <option>Rodent</option>
+            </select>
+          </label>
+        </div>
+
+        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr" }}>
+          <label>
+            Preferred Date
+            <input required type="date" name="date" value={data.date} onChange={onChange} />
+          </label>
+
+          <label>
+            Preferred Time
+            <input required type="time" name="time" value={data.time} onChange={onChange} />
+          </label>
+        </div>
+
+        <label>
+          Notes (optional)
+          <textarea name="notes" rows={4} value={data.notes} onChange={onChange} />
+        </label>
+
+        {err && <p style={{ color: "crimson" }}>{err}</p>}
+
+        <button type="submit" disabled={submitting} style={{ padding: "10px 14px", cursor: "pointer" }}>
+          {submitting ? "Submitting…" : "Request Appointment"}
+        </button>
+      </form>
+    </main>
+  );
+}

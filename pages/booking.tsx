@@ -1,7 +1,5 @@
-﻿// pages/booking.tsx
-import React from "react";
-import BookingClient from "../components/BookingClient";
+﻿import BookingClient from "../components/BookingClient";
 
-export default function BookingPage() {
+export default function BookPage() {
   return <BookingClient />;
 }

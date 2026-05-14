@@ -1,0 +1,64 @@
+﻿import Head from "next/head";
+import dynamic from "next/dynamic";
+
+function buildSuccessBanner(id: string | null, dateTxt?: string | null, timeTxt?: string | null) {
+  const idPart   = id ? ` — #${id}` : "";
+  const datePart = (dateTxt && String(dateTxt).trim()) ? String(dateTxt) : "your requested date";
+  const timePart = (timeTxt && String(timeTxt).trim()) ? String(timeTxt) : "your preferred time";
+  return `Request sent${idPart}. We will contact you to confirm ${datePart} at ${timePart}.`;
+}
+const BookingClient = dynamic(() => import("../components/BookingClient"), { ssr: false });
+
+// Keep this SSR so Vercel wonÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢t serve stale static output
+export async function getServerSideProps() {
+  return { props: {} };
+}
+
+export default function BookingPage() {
+  return (
+    <>
+      <Head>
+        <title>Plank Termite &amp; Pest Control LLC ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Booking</title>
+      </Head>
+
+      <div className="page">
+        <div className="banner">
+          <img
+            src="/banner.png"
+            alt="Plank Pest"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.display = "none";
+            }}
+          />
+        </div>
+
+        <BookingClient />
+      </div>
+
+      <style jsx>{`
+        .page {
+          max-width: 980px;
+          margin: 0 auto;
+          padding: 24px 16px 64px;
+          line-height: 1.5;
+          font-size: 16px;
+        }
+        .banner {
+          display: flex;
+          justify-content: center;
+          margin: 8px 0 24px;
+        }
+        .banner img {
+          max-width: 640px;
+          width: 100%;
+          height: auto;
+          display: block;
+        }
+      `}</style>
+    </>
+  );
+}
+
+
+
+

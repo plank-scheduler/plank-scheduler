@@ -1,122 +1,170 @@
 ﻿import type { NextApiRequest, NextApiResponse } from "next";
-import fs from "fs/promises";
+import nodemailer from "nodemailer";
+import fs from "fs";
 import path from "path";
+import { notifyNewRequest } from "@/lib/notifier";
 
-type Apt = {
-  id: string;
-  customerId: number;
-  date: string;   // YYYY-MM-DD
-  time: string;   // HH:mm
-  plan?: string;
-  service?: string;
-  notes?: string;
-  createdAt: string; // ISO
-};
-
-type NewCustomer = { name: string; phone?: string; address?: string };
-type Customer = { id: number } & NewCustomer;
+function formatValue(value: any) {
+  return value && String(value).trim()
+    ? String(value).trim()
+    : "Not selected";
+}
 
 const DATA_DIR = path.join(process.cwd(), "data");
-const APT_FILE = path.join(DATA_DIR, "appointments.json");
-const CUST_FILE = path.join(DATA_DIR, "customers.json");
+const APPOINTMENTS_FILE = path.join(DATA_DIR, "appointments.json");
 
-async function readJson<T>(file: string, fallback: T): Promise<T> {
+function ensureDataFile() {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+
+  if (!fs.existsSync(APPOINTMENTS_FILE)) {
+    fs.writeFileSync(APPOINTMENTS_FILE, "[]", "utf8");
+  }
+}
+
+function saveAppointment(payload: any) {
+  ensureDataFile();
+
+  const raw = fs.readFileSync(APPOINTMENTS_FILE, "utf8");
+
+  let current = [];
+
   try {
-    const txt = await fs.readFile(file, "utf8");
-    const v = JSON.parse(txt);
-    return v ?? fallback;
+    current = JSON.parse(raw);
   } catch {
-    return fallback;
+    current = [];
   }
-}
-async function writeJson<T>(file: string, value: T) {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(file, JSON.stringify(value, null, 2), "utf8");
+
+  const newAppointment = {
+    id: Date.now().toString(),
+    createdAt: new Date().toISOString(),
+    ...payload,
+  };
+
+  current.unshift(newAppointment);
+
+  fs.writeFileSync(
+    APPOINTMENTS_FILE,
+    JSON.stringify(current, null, 2),
+    "utf8"
+  );
+
+  return newAppointment;
 }
 
-async function ensureCustomerId(body: any): Promise<number> {
-  // admin mode: explicit numeric customerId
-  if (typeof body?.customerId === "number" && body.customerId > 0) {
-    return body.customerId;
+async function sendCustomerConfirmation(payload: any) {
+  const customer = payload?.customer;
+
+  if (!customer?.email) {
+    console.log("No customer email found.");
+    return null;
   }
-  // public mode: body.customer {name, phone, address}
-  if (body?.customer?.name) {
-    const all = await readJson<Customer[]>(CUST_FILE, []);
-    const maxId = all.reduce((m, c) => Math.max(m, c.id), 0);
-    const nextId = maxId + 1;
-    const newCust: Customer = {
-      id: nextId,
-      name: String(body.customer.name).trim(),
-      phone: String(body.customer.phone || ""),
-      address: String(body.customer.address || "")
-    };
-    all.push(newCust);
-    await writeJson(CUST_FILE, all);
-    return nextId;
-  }
-  throw new Error("Missing customer information.");
+
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT || 465),
+    secure: true,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+  const text = `
+Hi ${customer.name || "there"},
+
+Thank you for contacting Plank Termite & Pest Control.
+
+We received your service request.
+
+Requested Date: ${formatValue(payload.date)}
+Preferred Time: ${formatValue(payload.time)}
+
+Service Frequency: ${formatValue(payload.plan)}
+Pest Control: ${formatValue(payload.service)}
+Insulation: ${formatValue(payload.insulationService)}
+Lawn Care: ${formatValue(payload.lawnCare)}
+Holiday / Seasonal Lighting: ${formatValue(payload.holidayLighting)}
+
+Address:
+${formatValue(customer.address)}
+
+Phone:
+${formatValue(customer.phone)}
+
+Notes:
+${formatValue(payload.notes)}
+
+This request has been sent to our office.
+We will contact you to confirm your appointment.
+
+Thank you,
+
+The Plank Team
+www.plankpest.com
+`;
+
+  const info = await transporter.sendMail({
+    from: process.env.NOTIFY_FROM || process.env.SMTP_USER,
+    to: customer.email,
+    subject: "We received your request — Plank Pest Control",
+    text,
+  });
+
+  console.log("Customer confirmation email result:", info);
+
+  return info;
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== "POST") {
+    return res.status(405).json({
+      ok: false,
+      error: "Method Not Allowed",
+    });
+  }
+
+  const payload = req.body ?? {};
+
+  let officeMessageId: string | null = null;
+  let customerMessageId: string | null = null;
+
   try {
-    if (req.method === "OPTIONS") {
-      res.setHeader("Allow", "GET,POST,DELETE,OPTIONS");
-      return res.status(204).end();
-    }
+    // SAVE REQUEST FIRST
+    const savedAppointment = saveAppointment(payload);
 
-    if (req.method === "GET") {
-      const date = (req.query.date as string) || "";
-      const all = await readJson<Apt[]>(APT_FILE, []);
-      const data = date ? all.filter((a) => a.date === date) : all;
-      return res.status(200).json({ ok: true, data });
-    }
+    console.log("Appointment saved:", savedAppointment.id);
 
-    if (req.method === "POST") {
-      const { date, time, plan, service, notes } = req.body || {};
-      if (!date) return res.status(400).json({ ok: false, error: "Missing date" });
-      if (!time) return res.status(400).json({ ok: false, error: "Missing time" });
+    // SEND OFFICE EMAIL
+    const officeInfo: any = await notifyNewRequest(payload);
 
-      const customerId = await ensureCustomerId(req.body);
-      const all = await readJson<Apt[]>(APT_FILE, []);
+    officeMessageId = officeInfo?.messageId ?? null;
 
-      // conflict check: same date+time already taken
-      if (all.some((a) => a.date === date && a.time === time)) {
-        return res.status(409).json({ ok: false, error: "That time is already booked." });
-      }
+    console.log("Office email send result:", officeInfo);
 
-      const apt: Apt = {
-        id: `apt_${Date.now()}`,
-        customerId,
-        date: String(date),
-        time: String(time),
-        plan: plan ? String(plan) : undefined,
-        service: service ? String(service) : undefined,
-        notes: notes ? String(notes) : undefined,
-        createdAt: new Date().toISOString()
-      };
+    // SEND CUSTOMER EMAIL
+    const customerInfo: any = await sendCustomerConfirmation(payload);
 
-      all.push(apt);
-      await writeJson(APT_FILE, all);
-      return res.status(200).json({ ok: true, ...apt });
-    }
+    customerMessageId = customerInfo?.messageId ?? null;
 
-    if (req.method === "DELETE") {
-      const id = (req.query.id as string) || (req.body ? req.body.id : "");
-      if (!id) return res.status(400).json({ ok: false, error: "Missing id" });
+    return res.status(200).json({
+      ok: true,
+      id: savedAppointment.id,
+      officeMessageId,
+      customerMessageId,
+      date: payload.date,
+      time: payload.time,
+    });
+  } catch (err: any) {
+    console.error("EMAIL/API ERROR:", err);
 
-      const all = await readJson<Apt[]>(APT_FILE, []);
-      const idx = all.findIndex((a) => a.id === id);
-      if (idx === -1) return res.status(404).json({ ok: false, error: "Not found" });
-
-      const [deleted] = all.splice(idx, 1);
-      await writeJson(APT_FILE, all);
-      return res.status(200).json({ ok: true, deleted });
-    }
-
-    res.setHeader("Allow", "GET,POST,DELETE,OPTIONS");
-    return res.status(405).json({ ok: false, error: "Method Not Allowed" });
-  } catch (e: any) {
-    console.error(e);
-    return res.status(500).json({ ok: false, error: String(e?.message || e) });
+    return res.status(500).json({
+      ok: false,
+      error: String(err?.message || err),
+    });
   }
 }

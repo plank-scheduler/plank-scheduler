@@ -1,0 +1,257 @@
+﻿/** Global booking config */
+
+export const BRAND = "Plank Termite & Pest Control LLC";
+export const GREETING =
+  "Thank you for choosing Plank Termite & Pest Control. We are a locally family-owned team serving South Central Missouri. Honest pricing, reliable service, guaranteed results.";
+
+export type Option = { value: string; label: string };
+
+/** Mode: "public" requires name/phone/address; "admin" shows customer dropdown */
+export const BOOKING_MODE: "public" | "admin" = "public";
+
+/** Visit/Service plans */
+export const PLAN_OPTIONS: Option[] = [
+  { value: "initial",    label: "Initial" },
+  { value: "monthly",    label: "Monthly" },
+  { value: "bi-annual",  label: "Bi-Annual" },
+  { value: "quarterly",  label: "Quarterly" },
+  { value: "tri-annual", label: "Tri-Annual" },
+  { value: "annual",     label: "Annual" },
+  { value: "one-time",   label: "One-Time" },
+];
+
+/**
+ * Services grouped for the booking dropdown.
+ * - Cockroaches: new dedicated group
+ * - Vole Removal: moved under Rodents
+ * - REMOVED: Bat removal, Attic remediation/sanitation, Wildlife exclusion
+ */
+export const SERVICE_GROUPS: { group: string; options: Option[] }[] = [
+  {
+    group: "Cockroaches",
+    options: [
+      { value: "roach-german",           label: "Cockroaches — German" },
+      { value: "roach-american-wood",    label: "Cockroaches — American / Smokybrown / Wood" },
+      { value: "roach-oriental",         label: "Cockroaches — Oriental" },
+      { value: "roach-brown-banded",     label: "Cockroaches — Brown-banded" },
+      { value: "roach-unknown",          label: "Cockroaches — Not sure (identify)" },
+    ],
+  },
+  {
+    group: "Rodents",
+    options: [
+      { value: "rodents-mice-inside",    label: "Rodents — Mice (Inside of Home)" },
+      { value: "rodents-rat-inside",     label: "Rodents — Rat (Inside of Home)" },
+      { value: "vole",                   label: "Vole Removal" }, // ← moved here
+      { value: "rodent-bait-stations",   label: "Rodent Bait Stations" },
+    ],
+  },
+  {
+    group: "Ants",
+    options: [
+      { value: "ants-carpenter",         label: "Ants — Carpenter" },
+      { value: "ants-nuisance",          label: "Ants — Nuisance" },
+      { value: "odorous-house-ants",     label: "Ants — Odorous/House" },
+    ],
+  },
+  {
+    group: "Spiders",
+    options: [
+      { value: "spiders-non-venomous",   label: "Spiders — Non-Venomous" },
+      { value: "spiders-brown-recluse",  label: "Spiders — Brown Recluse" },
+      { value: "spiders-black-widow",    label: "Spiders — Black Widow" },
+    ],
+  },
+  {
+    group: "General Pests",
+    options: [
+      { value: "general-treatment",      label: "General Treatment" },
+      { value: "inspection-general",     label: "Inspection (General)" },
+      { value: "crickets",               label: "Crickets" },
+      { value: "earwigs",                label: "Earwigs" },
+      { value: "centipedes",             label: "Centipedes" },
+      { value: "millipedes",             label: "Millipedes" },
+      { value: "silverfish",             label: "Silverfish / Firebrats" },
+      { value: "lady-beetles",           label: "Lady Beetles" },
+      { value: "boxelder-bugs",          label: "Boxelder Bugs" },
+      { value: "clover-mites",           label: "Clover Mites" },
+      { value: "gnats",                  label: "Gnats / Small Flies" },
+      { value: "flies",                  label: "Flies — General" },
+      { value: "pantry-moths",           label: "Pantry Moths (Indian Meal Moth)" },
+      { value: "weevils",                label: "Pantry Weevils / Grain Beetles" },
+      { value: "carpet-beetles",         label: "Carpet Beetles" },
+      // NOTE: no cockroaches here—those are in the Cockroaches group
+    ],
+  },
+  {
+    group: "Stinging Insects",
+    options: [
+      { value: "wasps-hornets",          label: "Wasps / Hornets / Yellowjackets" },
+      { value: "bald-faced-hornets",     label: "Bald-faced Hornets" },
+      { value: "carpenter-bees",         label: "Carpenter Bees" },
+    ],
+  },
+  {
+    group: "Bed Bugs",
+    options: [{ value: "bed-bugs",       label: "Bed Bugs" }],
+  },
+  {
+    group: "Termites & WDI",
+    options: [
+      { value: "termite-inspection-wdi", label: "Termite / WDI Inspection (Real Estate)" },
+      { value: "termite-liquid",         label: "Termites — Liquid Trench & Treat" },
+      { value: "termite-baiting",        label: "Termites — Baiting (Sentricon)" },
+      { value: "sentricon-check",        label: "Sentricon Check (Bait Station Inspection)" },
+      { value: "termite-warranty",       label: "Termite Warranty Renewal" },
+      { value: "powderpost-beetles",     label: "Powderpost Beetles" },
+    ],
+  },
+  {
+    group: "Yard & Outdoor",
+    options: [
+      { value: "mosquito-treatment",     label: "Mosquito Treatment" },
+      { value: "ticks",                  label: "Ticks (Yard Program)" },
+      { value: "fleas",                  label: "Fleas (Indoor/Outdoor)" },
+      { value: "bagworms",               label: "Bagworms (Trees/Shrubs)" },
+      // NOTE: no vole here—moved to Rodents
+    ],
+  },
+  // Optional Wildlife group if you want to keep *non-bat* items (no “exclusion” entry added)
+  // { group: "Wildlife", options: [{ value: "bird-removal", label: "Bird Removal" }] },
+];
+
+export const SERVICE_GROUPS = [
+  {
+    group: "Ants",
+    options: [
+      { value: "carpenter-ants", label: "Carpenter Ants" },
+      { value: "nuisance-ants", label: "Nuisance Ants" },
+      { value: "pavement-ants", label: "Pavement Ants" },
+      { value: "pharaoh-ants", label: "Pharaoh Ants" }
+    ]
+  },
+  {
+    group: "Bed Bugs",
+    options: [
+      { value: "bed-bugs", label: "Bed Bugs" }
+    ]
+  },
+  {
+    group: "Biting/External Parasites",
+    options: [
+      { value: "chiggers", label: "Chiggers" },
+      { value: "fleas", label: "Fleas" },
+      { value: "mosquitoes", label: "Mosquitoes" },
+      { value: "ticks", label: "Ticks" }
+    ]
+  },
+  {
+    group: "Cockroaches",
+    options: [
+      { value: "american-cockroach", label: "American Cockroach" },
+      { value: "brown-banded-cockroach", label: "Brown-Banded Cockroach" },
+      { value: "german-cockroach", label: "German Cockroach" },
+      { value: "oriental-cockroach", label: "Oriental Cockroach" },
+      { value: "smokybrown-cockroach", label: "Smokybrown Cockroach" }
+    ]
+  },
+  {
+    group: "Flies & Gnats",
+    options: [
+      { value: "cluster-fly", label: "Cluster Fly" },
+      { value: "drain-fly", label: "Drain Fly" },
+      { value: "fruit-fly", label: "Fruit Fly" },
+      { value: "fungus-gnats", label: "Fungus Gnats" },
+      { value: "house-fly", label: "House Fly" }
+    ]
+  },
+  {
+    group: "Occasional Invaders",
+    options: [
+      { value: "asian-lady-beetles", label: "Asian Lady Beetles" },
+      { value: "boxelder-bugs", label: "Boxelder Bugs" },
+      { value: "centipedes", label: "Centipedes" },
+      { value: "crickets-camel-cave", label: "Crickets (Camel/Cave)" },
+      { value: "earwigs", label: "Earwigs" },
+      { value: "millipedes", label: "Millipedes" },
+      { value: "silverfish", label: "Silverfish" },
+      { value: "springtails", label: "Springtails" },
+      { value: "stink-bugs", label: "Stink Bugs" }
+    ]
+  },
+  {
+    group: "Other",
+    options: [
+      { value: "other", label: "Other (Describe)" }
+    ]
+  },
+  {
+    group: "Pantry Pests",
+    options: [
+      { value: "flour-beetles", label: "Flour Beetles" },
+      { value: "indianmeal-moth", label: "Indianmeal Moth" },
+      { value: "sawtoothed-grain-beetle", label: "Sawtoothed Grain Beetle" }
+    ]
+  },
+  {
+    group: "Rodents",
+    options: [
+      { value: "mice", label: "Mice" },
+      { value: "rats", label: "Rats" },
+      { value: "voles", label: "Voles" }
+    ]
+  },
+  {
+    group: "Spiders",
+    options: [
+      { value: "black-widow", label: "Black Widow" },
+      { value: "brown-recluse", label: "Brown Recluse" },
+      { value: "common-house-spider", label: "Common House Spider" },
+      { value: "wolf-spider", label: "Wolf Spider" }
+    ]
+  },
+  {
+    group: "Stinging Pests",
+    options: [
+      { value: "bald-faced-hornets", label: "Bald-Faced Hornets" },
+      { value: "bees", label: "Bees" },
+      { value: "cicada-killers", label: "Cicada Killers" },
+      { value: "paper-wasps", label: "Paper Wasps" },
+      { value: "yellowjackets", label: "Yellowjackets" }
+    ]
+  },
+  {
+    group: "Termites & WDI",
+    options: [
+      { value: "carpenter-bees", label: "Carpenter Bees" },
+      { value: "powder-post-beetles", label: "Powder Post Beetles" },
+      { value: "sentricon-1-termite-elimination-system", label: "Sentricon #1 Termite Elimination System" },
+      { value: "sentricon-check", label: "Sentricon Check" },
+      { value: "subterranean-termites", label: "Subterranean Termites" },
+      { value: "termite-wdi-inspection-reports", label: "Termite (WDI) Inspection Reports" }
+    ]
+  },
+  {
+    group: "Wildlife",
+    options: [
+      { value: "birds", label: "Birds" },
+      { value: "groundhogs", label: "Groundhogs" },
+      { value: "opossums", label: "Opossums" },
+      { value: "raccoons", label: "Raccoons" },
+      { value: "skunks", label: "Skunks" },
+      { value: "snakes", label: "Snakes" },
+      { value: "squirrels", label: "Squirrels" }
+    ]
+  },
+  {
+    group: "Yard Treatments",
+    options: [
+      { value: "yard-chiggers", label: "Chiggers" },
+      { value: "yard-fleas", label: "Fleas" },
+      { value: "yard-general-pests", label: "General Pests" },
+      { value: "yard-mosquitos", label: "Mosquitos" },
+      { value: "yard-ticks", label: "Ticks" }
+    ]
+  }
+];
+

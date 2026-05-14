@@ -1,0 +1,54 @@
+﻿type SmsData = {
+  customer?: { name?: string; phone?: string; address?: string; email?: string };
+  date?: string;
+  time?: string;
+  plan?: string;
+  service?: string;
+  notes?: string;
+};
+
+export async function sendNewBookingSMS(data: SmsData) {
+  const sid  = process.env.TWILIO_ACCOUNT_SID;
+  const auth = process.env.TWILIO_AUTH_TOKEN;
+  const from = process.env.TWILIO_FROM;            // e.g. +1573xxxxxxx (Twilio number)
+  const to   = process.env.SMS_TO || "+15733683333"; // your cell; default set
+
+  if (!sid || !auth || !from || !to) {
+    console.warn("Twilio not fully configured; skipping SMS");
+    return;
+  }
+
+  const body =
+    `Booking request — ${data.service || ""}\n` +
+    `${data.customer?.name || ""}  ${data.customer?.phone || ""}\n` +
+    `${data.customer?.address || ""}\n` +
+    `Email: ${data.customer?.email || ""}\n` +
+    `Date: ${data.date || ""}  Time: ${data.time || ""}\n` +
+    `Plan: ${data.plan || ""}\n` +
+    (data.notes ? `Notes: ${data.notes}` : "");
+
+  const form = new URLSearchParams();
+  form.append("To", to);
+  form.append("From", from);
+  form.append("Body", body);
+
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`;
+  const basic = Buffer.from(`${sid}:${auth}`).toString("base64");
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${basic}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: form.toString(),
+    } as RequestInit);
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      console.warn("Twilio SMS failed:", res.status, t);
+    }
+  } catch (e) {
+    console.warn("Twilio fetch error:", e);
+  }
+}

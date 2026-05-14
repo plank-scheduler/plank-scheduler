@@ -37,6 +37,7 @@ function toAmPm(hhmm: string) {
 }
 
 function isWithinWindow(hhmm: string, min = "07:30", max = "18:00") {
+  // simple string compare works for HH:MM 24h
   return hhmm >= min && hhmm <= max;
 }
 
@@ -51,7 +52,7 @@ export default function BookingClient() {
   const [publicEmail, setPublicEmail] = useState("");
 
   const [date, setDate] = useState<string>(fmtDate(new Date()));
-  const [time, setTime] = useState<string>("");
+  const [time, setTime] = useState<string>(""); // 24h HH:MM from input[type=time]
   const [plan, setPlan] = useState<string>("");
   const [service, setService] = useState<string>("");
   const [otherDetail, setOtherDetail] = useState<string>("");
@@ -104,13 +105,14 @@ export default function BookingClient() {
 
     const serviceToSend =
       service === "other" && otherDetail.trim()
-        ? `Other — ${otherDetail.trim()}`
+        ? \`Other — \${otherDetail.trim()}\`
         : service;
 
-    // Snapshot BEFORE any resets
+    // Snapshot the values the user picked BEFORE any resets
     const sentDate = date;
     const sentTime = toAmPm(time);
 
+    // Build the payload expected by the API
     const payload =
       BOOKING_MODE === "admin"
         ? { customerId, date, time: sentTime, plan, service: serviceToSend, notes }
@@ -146,8 +148,11 @@ export default function BookingClient() {
 
       setMessage(banner);
       setMsgKind("success");
+
+      // (Optional) you can reset fields here if you want, AFTER composing the banner:
+      // setPlan(""); setService(""); setOtherDetail(""); setNotes(""); setTime("");
     } catch (e: any) {
-      setMessage(`Error: ${String(e?.message || e)}`);
+      setMessage(\`Error: \${String(e?.message || e)}\`);
       setMsgKind("error");
     }
   }
@@ -163,7 +168,7 @@ export default function BookingClient() {
         <option value="">— Select a customer —</option>
         {customers.map((c) => (
           <option key={c.id} value={c.id}>
-            {c.name} {c.code ? `— ${c.code}` : ""}
+            {c.name} {c.code ? \`— \${c.code}\` : ""}
           </option>
         ))}
       </select>
