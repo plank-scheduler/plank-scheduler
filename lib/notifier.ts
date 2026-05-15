@@ -1,38 +1,66 @@
 ﻿import nodemailer from "nodemailer";
 
-// SMS disabled
 function mailer() {
   const port = Number(process.env.SMTP_PORT || 587);
-  if (!process.env.SMTP_HOST) throw new Error("SMTP not configured");
+
+  if (!process.env.SMTP_HOST) {
+    throw new Error("SMTP not configured");
+  }
 
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST!,
     port,
     secure: port === 465,
     auth: process.env.SMTP_USER
-      ? { user: process.env.SMTP_USER!, pass: process.env.SMTP_PASS! }
+      ? {
+          user: process.env.SMTP_USER!,
+          pass: process.env.SMTP_PASS!,
+        }
       : undefined,
   });
 }
 
-async function sendEmail(text: string, subject: string) {
-  const to = process.env.NOTIFY_TO!;
-  const from = process.env.NOTIFY_FROM || process.env.SMTP_USER || to;
-  return await mailer().sendMail({ to, from, subject, text });
+function fromAddress() {
+  return (
+    process.env.NOTIFY_FROM ||
+    process.env.SMTP_USER ||
+    process.env.NOTIFY_TO ||
+    "office@plankpest.com"
+  );
 }
 
-async function sendSMS(_: string) {
-  return;
+function officeToAddress() {
+  return process.env.NOTIFY_TO || process.env.SCHEDULER_TO || "office@plankpest.com";
 }
 
-export async function notifyNewRequest(data: any) {
+function serviceSummary(data: any) {
+  return [
+    data.service ? `Pest Control: ${data.service}` : "",
+    data.insulationService ? `Insulation: ${data.insulationService}` : "",
+    data.lawnCare ? `Lawn Care: ${data.lawnCare}` : "",
+    data.holidayLighting ? `Holiday / Seasonal Lighting: ${data.holidayLighting}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+async function sendOfficeEmail(data: any) {
   const subject = `New booking request: ${[
-    data.service || data.insulationService || data.lawnCare || data.holidayLighting || "service",
+    data.service ||
+      data.insulationService ||
+      data.lawnCare ||
+      data.holidayLighting ||
+      "service",
     data.date,
     data.time,
   ]
     .filter(Boolean)
     .join(" — ")}`;
+
+  const photoText =
+    Array.isArray(data.photoUrls) && data.photoUrls.length
+      ? data.photoUrls.map((url: string) => `Photo: ${url}`).join("\n")
+      : "Photos: none";
 
   const text = `New booking request
 
@@ -41,29 +69,94 @@ Phone:   ${data.customer?.phone || ""}
 Address: ${data.customer?.address || ""}
 Email:   ${data.customer?.email || ""}
 
-Date: ${data.date}
-Preferred time: ${data.time}
+Date: ${data.date || "—"}
+Preferred time: ${data.time || "—"}
 Plan: ${data.plan || "—"}
-Service: ${data.service || "—"}
-Insulation Service: ${data.insulationService || "—"}
-Holiday Lighting: ${data.holidayLighting || "—"}
-Lawn Care: ${data.lawnCare || "—"}
+
+${serviceSummary(data) || "Service: —"}
+
 Notes: ${data.notes || "—"}
+
+${photoText}
+
 Status: pending — please call/text/email to confirm with the customer.`;
 
-  let emailInfo: any = null;
+  return await mailer().sendMail({
+    to: officeToAddress(),
+    from: fromAddress(),
+    subject,
+    text,
+  });
+}
+
+async function sendCustomerEmail(data: any) {
+  const customerEmail = data.customer?.email;
+
+  if (!customerEmail) {
+    return null;
+  }
+
+  const subject = "We received your service request — Plank Termite & Pest Control";
+
+  const text = `Hello ${data.customer?.name || ""},
+
+Thank you for contacting Plank Termite & Pest Control. We received your service request.
+
+Requested appointment:
+Date: ${data.date || "—"}
+Preferred time: ${data.time || "—"}
+Plan: ${data.plan || "—"}
+
+${serviceSummary(data) || "Service: —"}
+
+Notes: ${data.notes || "—"}
+
+Our office will review your request and contact you to confirm the appointment.
+
+Thank you,
+
+The Plank Team
+www.plankpest.com
+573-368-3333`;
+
+  return await mailer().sendMail({
+    to: customerEmail,
+    from: fromAddress(),
+    subject,
+    text,
+  });
+}
+
+async function sendSMS(_: string) {
+  return;
+}
+
+export async function notifyNewRequest(data: any) {
+  let officeEmailInfo: any = null;
+  let customerEmailInfo: any = null;
 
   try {
-    emailInfo = await sendEmail(text, subject);
+    officeEmailInfo = await sendOfficeEmail(data);
   } catch (err) {
-    console.error("sendEmail failed:", err);
+    console.error("Office email failed:", err);
+    throw err;
   }
 
   try {
-    await sendSMS(text);
+    customerEmailInfo = await sendCustomerEmail(data);
   } catch (err) {
-    console.error("sendSMS failed:", err);
+    console.error("Customer confirmation email failed:", err);
   }
 
-  return emailInfo;
+  try {
+    await sendSMS("");
+  } catch (err) {
+    console.error("SMS failed:", err);
+  }
+
+  return {
+    officeEmailInfo,
+    customerEmailInfo,
+    messageId: officeEmailInfo?.messageId || null,
+  };
 }
