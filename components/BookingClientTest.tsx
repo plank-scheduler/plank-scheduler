@@ -27,7 +27,6 @@ type PostResp =
   | {
       ok: true;
       id: string;
-      customerId?: number;
       date: string;
       time: string;
       plan?: string;
@@ -109,12 +108,16 @@ export default function BookingClient() {
     if (BOOKING_MODE !== "admin") return;
 
     (async () => {
-      const r = await fetch("/api/customers?limit=200");
-      const j = (await r.json()) as CustomersResp;
+      try {
+        const r = await fetch("/api/customers?limit=200");
+        const j = (await r.json()) as CustomersResp;
 
-      if ("ok" in j && j.ok) {
-        setCustomers(j.data);
-        if (j.data.length && customerId === "") setCustomerId(j.data[0].id);
+        if ("ok" in j && j.ok) {
+          setCustomers(j.data);
+          if (j.data.length && customerId === "") setCustomerId(j.data[0].id);
+        }
+      } catch (err) {
+        console.warn("Customer load skipped:", err);
       }
     })();
   }, [customerId]);
@@ -149,6 +152,13 @@ export default function BookingClient() {
   async function uploadPhotos() {
     const uploadedUrls: string[] = [];
 
+    if (!photoFiles.length) {
+      return uploadedUrls;
+    }
+
+    setMessage("Uploading photos...");
+    setMsgKind("info");
+
     for (const file of photoFiles) {
       try {
         const base64 = await fileToBase64(file);
@@ -166,7 +176,7 @@ export default function BookingClient() {
 
         const j = (await r.json()) as UploadResp;
 
-        if ("ok" in j && j.ok) {
+        if ("ok" in j && j.ok && j.url) {
           uploadedUrls.push(j.url);
         } else {
           console.warn("Photo upload skipped:", (j as any).error);
@@ -204,6 +214,9 @@ export default function BookingClient() {
 
       const photoUrls = await uploadPhotos();
 
+      setMessage("Saving request...");
+      setMsgKind("info");
+
       const body =
         BOOKING_MODE === "admin"
           ? {
@@ -223,6 +236,9 @@ export default function BookingClient() {
                 name: publicName.trim(),
                 phone: publicPhone.trim(),
                 address: fullAddress || publicAddress.trim(),
+                city: publicCity.trim(),
+                state: publicState.trim(),
+                zip: publicZip.trim(),
                 email: publicEmail.trim(),
               },
               date,
@@ -592,8 +608,7 @@ export default function BookingClient() {
         </label>
 
         <div style={{ fontSize: 12, marginBottom: 6 }}>
-          Add up to 3 photos. If upload is unavailable, your request will still
-          submit normally.
+          Add up to 3 photos. Photos will be saved with your request.
         </div>
 
         <input
