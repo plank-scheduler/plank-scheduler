@@ -1,42 +1,58 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import fs from "fs";
-import path from "path";
+import { initializeDatabase, pool } from "@/lib/db";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const APPOINTMENTS_FILE = path.join(DATA_DIR, "appointments.json");
-
-function readAppointments() {
-  if (!fs.existsSync(APPOINTMENTS_FILE)) {
-    return [];
-  }
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  await initializeDatabase();
 
   try {
-    const raw = fs.readFileSync(APPOINTMENTS_FILE, "utf8");
-    const parsed = JSON.parse(raw);
+    const result = await pool.query(`
+      SELECT *
+      FROM appointments
+      ORDER BY created_at DESC
+    `);
 
-    if (Array.isArray(parsed)) {
-      return parsed;
-    }
+    const appointments = result.rows.map((row) => ({
+      id: row.id,
 
-    return [];
-  } catch {
-    return [];
-  }
-}
+      customer: {
+        name: row.customer_name,
+        phone: row.customer_phone,
+        email: row.customer_email,
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "GET") {
-    return res.status(405).json({
-      ok: false,
-      error: "Method Not Allowed",
+        address: row.address,
+        city: row.city,
+        state: row.state,
+        zip: row.zip,
+      },
+
+      service: row.service,
+      insulationService: row.insulation_service,
+      lawnCare: row.lawn_care,
+      holidayLighting: row.holiday_lighting,
+
+      plan: row.plan,
+      date: row.date,
+      time: row.time,
+
+      notes: row.notes,
+      status: row.status,
+
+      createdAt: row.created_at,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      appointments,
+    });
+  } catch (err: any) {
+    console.error(err);
+
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Server error",
     });
   }
-
-  const appointments = readAppointments();
-
-  return res.status(200).json({
-    ok: true,
-    count: appointments.length,
-    data: appointments,
-  });
 }

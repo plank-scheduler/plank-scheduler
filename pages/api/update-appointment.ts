@@ -1,96 +1,158 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import fs from "fs";
-import path from "path";
-
-const DATA_DIR = path.join(process.cwd(), "data");
-const APPOINTMENTS_FILE = path.join(DATA_DIR, "appointments.json");
+import { initializeDatabase, pool } from "@/lib/db";
 
 const VALID_STATUSES = ["New", "Contacted", "Scheduled", "Completed", "Cancelled"];
 
-function readAppointments() {
-  if (!fs.existsSync(APPOINTMENTS_FILE)) return [];
+function checkAdminPassword(req: NextApiRequest) {
+  const expected = process.env.ADMIN_PASSWORD;
 
-  try {
-    const raw = fs.readFileSync(APPOINTMENTS_FILE, "utf8");
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+  if (!expected) {
+    return true;
   }
+
+  const provided = req.headers["x-admin-password"];
+
+  return provided === expected;
 }
 
-function writeAppointments(appointments: any[]) {
-  fs.writeFileSync(APPOINTMENTS_FILE, JSON.stringify(appointments, null, 2), "utf8");
-}
-
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   if (req.method !== "POST") {
-    return res.status(405).json({ ok: false, error: "Method Not Allowed" });
-  }
-
-  const adminPassword = process.env.ADMIN_PASSWORD;
-  const providedPassword = req.headers["x-admin-password"];
-
-  if (!adminPassword) {
-    return res.status(500).json({ ok: false, error: "ADMIN_PASSWORD is not set in .env.local" });
-  }
-
-  if (providedPassword !== adminPassword) {
-    return res.status(401).json({ ok: false, error: "Unauthorized" });
-  }
-
-  const { id, status, officeNotes, archived, deleted } = req.body ?? {};
-
-  if (!id) {
-    return res.status(400).json({ ok: false, error: "Missing appointment id" });
-  }
-
-  const appointments = readAppointments();
-  const index = appointments.findIndex((appt: any) => appt.id === id);
-
-  if (index === -1) {
-    return res.status(404).json({ ok: false, error: "Appointment not found" });
-  }
-
-  if (deleted === true) {
-    const removed = appointments.splice(index, 1)[0];
-    writeAppointments(appointments);
-
-    return res.status(200).json({
-      ok: true,
-      deleted: true,
-      appointment: removed,
+    return res.status(405).json({
+      ok: false,
+      error: "Method Not Allowed",
     });
   }
 
-  const updated = {
-    ...appointments[index],
-  };
+  if (!checkAdminPassword(req)) {
+    return res.status(401).json({
+      ok: false,
+      error: "Unauthorized",
+    });
+  }
 
-  if (typeof status === "string") {
-    if (!VALID_STATUSES.includes(status)) {
-      return res.status(400).json({ ok: false, error: "Invalid status" });
+  try {
+    await initializeDatabase();
+
+    const { id, status, officeNotes, archived, deleted } = req.body || {};
+
+    if (!id) {
+      return res.status(400).json({
+        ok: false,
+        error: "Missing appointment id",
+      });
     }
 
-    updated.status = status;
-    updated.statusUpdatedAt = new Date().toISOString();
+    if (deleted === true) {
+      await pool.query("DELETE FROM appointments WHERE id = $1", [id]);
+
+      return res.status(200).json({
+        ok: true,
+        deleted: true,
+      });
+    }
+
+    if (typeof status === "string") {
+      if (!VALID_STATUSES.includes(status)) {
+        return res.status(400).json({
+          ok: false,
+          error: "Invalid status",
+        });
+      }
+
+      await pool.query(
+        `
+        UPDATE appointments
+        SET status = $1,
+            status_updated_at = NOW()
+        WHERE id = $2
+        `,
+        [status, id]
+      );
+    }
+
+    if (typeof officeNotes === "string") {
+      await pool.query(
+        `
+        UPDATE appointments
+        SET office_notes = $1
+        WHERE id = $2
+        `,
+        [officeNotes, id]
+      );
+    }
+
+    if (typeof archived === "boolean") {
+      await pool.query(
+        `
+        UPDATE appointments
+        SET archived = $1,
+            archived_at = CASE WHEN $1 = TRUE THEN NOW() ELSE NULL END
+        WHERE id = $2
+        `,
+        [archived, id]
+      );
+    }
+
+    const result = await pool.query(
+      `
+      SELECT *
+      FROM appointments
+      WHERE id = $1
+      `,
+      [id]
+    );
+
+    if (!result.rows.length) {
+      return res.status(404).json({
+        ok: false,
+        error: "Appointment not found",
+      });
+    }
+
+    const row = result.rows[0];
+
+    return res.status(200).json({
+      ok: true,
+      appointment: {
+        id: String(row.id),
+        createdAt: row.created_at,
+
+        customer: {
+          name: row.customer_name || "",
+          phone: row.customer_phone || "",
+          email: row.customer_email || "",
+          address: row.address || "",
+        },
+
+        service: row.service || "",
+        insulationService: row.insulation_service || "",
+        lawnCare: row.lawn_care || "",
+        holidayLighting: row.holiday_lighting || "",
+
+        plan: row.plan || "",
+        date: row.date || "",
+        time: row.time || "",
+
+        notes: row.notes || "",
+        officeNotes: row.office_notes || "",
+        status: row.status || "New",
+
+        archived: !!row.archived,
+        archivedAt: row.archived_at || null,
+        statusUpdatedAt: row.status_updated_at || null,
+
+        photoUrls: row.photo_urls || [],
+      },
+    });
+  } catch (err: any) {
+    console.error("update-appointment failed:", err);
+
+    return res.status(500).json({
+      ok: false,
+      error: err.message || "Server error",
+    });
   }
-
-  if (typeof officeNotes === "string") {
-    updated.officeNotes = officeNotes;
-    updated.officeNotesUpdatedAt = new Date().toISOString();
-  }
-
-  if (typeof archived === "boolean") {
-    updated.archived = archived;
-    updated.archivedAt = archived ? new Date().toISOString() : null;
-  }
-
-  appointments[index] = updated;
-  writeAppointments(appointments);
-
-  return res.status(200).json({
-    ok: true,
-    appointment: updated,
-  });
 }
