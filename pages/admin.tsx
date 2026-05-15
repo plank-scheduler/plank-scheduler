@@ -58,6 +58,10 @@ function getStatus(appt: Appointment) {
   return appt.status || "New";
 }
 
+function isArchived(appt: Appointment) {
+  return appt.archived === true || String(appt.status || "").toLowerCase() === "archived";
+}
+
 function normalizePhone(phone?: string) {
   return String(phone || "").replace(/\D/g, "");
 }
@@ -73,6 +77,7 @@ function statusColor(status: string) {
   if (status === "Scheduled") return "#6f42c1";
   if (status === "Completed") return "#555";
   if (status === "Cancelled") return "#b00020";
+  if (status === "Archived") return "#777";
   return "#333";
 }
 
@@ -245,6 +250,8 @@ export default function AdminPage() {
     const q = search.trim().toLowerCase();
 
     return appointments.filter((appt) => {
+      const archived = isArchived(appt);
+
       const combined = [
         appt.customer?.name,
         appt.customer?.phone,
@@ -265,7 +272,8 @@ export default function AdminPage() {
         .toLowerCase();
 
       const matchesSearch = !q || combined.includes(q);
-      const matchesStatus = statusFilter === "All" || getStatus(appt) === statusFilter;
+      const matchesStatus =
+        statusFilter === "All" || getStatus(appt) === statusFilter;
 
       const matchesService =
         serviceFilter === "All" ||
@@ -276,8 +284,8 @@ export default function AdminPage() {
 
       const matchesArchive =
         archiveFilter === "All" ||
-        (archiveFilter === "Active" && !appt.archived) ||
-        (archiveFilter === "Archived" && !!appt.archived);
+        (archiveFilter === "Active" && !archived) ||
+        (archiveFilter === "Archived" && archived);
 
       return matchesSearch && matchesStatus && matchesService && matchesArchive;
     });
@@ -288,7 +296,7 @@ export default function AdminPage() {
       appt.id,
       appt.createdAt || "",
       getStatus(appt),
-      appt.archived ? "Archived" : "Active",
+      isArchived(appt) ? "Archived" : "Active",
       priorityInfo(appt).label,
       isDuplicate(appt) ? "Possible Duplicate" : "",
       appt.customer?.name || "",
@@ -500,6 +508,7 @@ export default function AdminPage() {
           const priority = priorityInfo(appt);
           const duplicate = isDuplicate(appt);
           const photos = appt.photoUrls || [];
+          const archived = isArchived(appt);
 
           return (
             <div
@@ -509,67 +518,30 @@ export default function AdminPage() {
                 borderLeft: `8px solid ${serviceColor(appt)}`,
                 borderRadius: 10,
                 padding: 20,
-                background: appt.archived ? "#f3f3f3" : "#fff",
+                background: archived ? "#f3f3f3" : "#fff",
                 boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                opacity: appt.archived ? 0.75 : 1,
+                opacity: archived ? 0.75 : 1,
               }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  flexWrap: "wrap",
-                  gap: 10,
-                  marginBottom: 12,
-                }}
-              >
+              <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
                 <div>
                   <div style={{ fontSize: 20, fontWeight: 700 }}>
                     {appt.customer?.name || "Unknown Customer"}
                   </div>
 
                   <div style={{ marginTop: 8 }}>
-                    <span
-                      style={{
-                        display: "inline-block",
-                        padding: "4px 10px",
-                        borderRadius: 999,
-                        background: priority.color,
-                        color: "#fff",
-                        fontWeight: 700,
-                        marginRight: 8,
-                      }}
-                    >
+                    <span style={{ display: "inline-block", padding: "4px 10px", borderRadius: 999, background: priority.color, color: "#fff", fontWeight: 700, marginRight: 8 }}>
                       {priority.label}
                     </span>
 
                     {duplicate ? (
-                      <span
-                        style={{
-                          display: "inline-block",
-                          padding: "4px 10px",
-                          borderRadius: 999,
-                          background: "#b00020",
-                          color: "#fff",
-                          fontWeight: 700,
-                        }}
-                      >
+                      <span style={{ display: "inline-block", padding: "4px 10px", borderRadius: 999, background: "#b00020", color: "#fff", fontWeight: 700 }}>
                         Possible Duplicate
                       </span>
                     ) : null}
 
-                    {appt.archived ? (
-                      <span
-                        style={{
-                          display: "inline-block",
-                          padding: "4px 10px",
-                          borderRadius: 999,
-                          background: "#777",
-                          color: "#fff",
-                          fontWeight: 700,
-                          marginLeft: 8,
-                        }}
-                      >
+                    {archived ? (
+                      <span style={{ display: "inline-block", padding: "4px 10px", borderRadius: 999, background: "#777", color: "#fff", fontWeight: 700, marginLeft: 8 }}>
                         Archived
                       </span>
                     ) : null}
@@ -578,9 +550,7 @@ export default function AdminPage() {
                   <div style={{ marginTop: 8 }}>
                     📞{" "}
                     {appt.customer?.phone ? (
-                      <a href={`tel:${appt.customer.phone}`}>
-                        {appt.customer.phone}
-                      </a>
+                      <a href={`tel:${appt.customer.phone}`}>{appt.customer.phone}</a>
                     ) : (
                       "N/A"
                     )}
@@ -589,9 +559,7 @@ export default function AdminPage() {
                   <div style={{ marginTop: 4 }}>
                     ✉️{" "}
                     {appt.customer?.email ? (
-                      <a href={`mailto:${appt.customer.email}`}>
-                        {appt.customer.email}
-                      </a>
+                      <a href={`mailto:${appt.customer.email}`}>{appt.customer.email}</a>
                     ) : (
                       "N/A"
                     )}
@@ -603,17 +571,7 @@ export default function AdminPage() {
                 </div>
 
                 <div style={{ textAlign: "right" }}>
-                  <div
-                    style={{
-                      display: "inline-block",
-                      padding: "4px 10px",
-                      borderRadius: 999,
-                      background: statusColor(status),
-                      color: "#fff",
-                      fontWeight: 700,
-                      marginBottom: 8,
-                    }}
-                  >
+                  <div style={{ display: "inline-block", padding: "4px 10px", borderRadius: 999, background: statusColor(status), color: "#fff", fontWeight: 700, marginBottom: 8 }}>
                     {status}
                   </div>
 
@@ -632,15 +590,11 @@ export default function AdminPage() {
               </div>
 
               <div style={{ marginBottom: 14 }}>
-                <label style={{ fontWeight: 700, marginRight: 8 }}>
-                  Status:
-                </label>
+                <label style={{ fontWeight: 700, marginRight: 8 }}>Status:</label>
 
                 <select
                   value={status}
-                  onChange={(e) =>
-                    updateAppointment(appt.id, { status: e.target.value })
-                  }
+                  onChange={(e) => updateAppointment(appt.id, { status: e.target.value })}
                   style={{ padding: 8 }}
                 >
                   {STATUSES.map((s) => (
@@ -652,36 +606,19 @@ export default function AdminPage() {
 
                 <button
                   type="button"
-                  onClick={() =>
-                    updateAppointment(appt.id, { archived: !appt.archived })
-                  }
-                  style={{
-                    marginLeft: 10,
-                    padding: "8px 10px",
-                    cursor: "pointer",
-                  }}
+                  onClick={() => updateAppointment(appt.id, { archived: !archived })}
+                  style={{ marginLeft: 10, padding: "8px 10px", cursor: "pointer" }}
                 >
-                  {appt.archived ? "Unarchive" : "Archive"}
+                  {archived ? "Unarchive" : "Archive"}
                 </button>
 
                 <button
                   type="button"
                   onClick={() => {
-                    const ok = window.confirm(
-                      "Delete this request permanently? This cannot be undone."
-                    );
-
-                    if (ok) {
-                      updateAppointment(appt.id, { deleted: true });
-                    }
+                    const ok = window.confirm("Delete this request permanently? This cannot be undone.");
+                    if (ok) updateAppointment(appt.id, { deleted: true });
                   }}
-                  style={{
-                    marginLeft: 10,
-                    padding: "8px 10px",
-                    cursor: "pointer",
-                    color: "#b00020",
-                    fontWeight: 700,
-                  }}
+                  style={{ marginLeft: 10, padding: "8px 10px", cursor: "pointer", color: "#b00020", fontWeight: 700 }}
                 >
                   Delete
                 </button>
@@ -689,13 +626,7 @@ export default function AdminPage() {
 
               <hr style={{ margin: "16px 0" }} />
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 12,
-                }}
-              >
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
                   <strong>Pest Control:</strong>
                   <div>{label(appt.service)}</div>
@@ -717,73 +648,10 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {photos.length ? (
-                <div style={{ marginTop: 18 }}>
-                  <strong>Uploaded Photos:</strong>
-
-                  <div
-                    style={{
-                      marginTop: 10,
-                      display: "flex",
-                      gap: 12,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    {photos.map((url, index) => (
-                      <a
-                        key={`${url}-${index}`}
-                        href={url}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{
-                          display: "block",
-                          border: "1px solid #ddd",
-                          borderRadius: 8,
-                          overflow: "hidden",
-                          width: 140,
-                          textDecoration: "none",
-                          color: "#333",
-                          background: "#fafafa",
-                        }}
-                      >
-                        <img
-                          src={url}
-                          alt={`Uploaded photo ${index + 1}`}
-                          style={{
-                            width: "100%",
-                            height: 100,
-                            objectFit: "cover",
-                            display: "block",
-                          }}
-                        />
-
-                        <div
-                          style={{
-                            padding: 6,
-                            fontSize: 12,
-                            textAlign: "center",
-                          }}
-                        >
-                          View Photo {index + 1}
-                        </div>
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
               <div style={{ marginTop: 18 }}>
                 <strong>Customer Notes:</strong>
 
-                <div
-                  style={{
-                    marginTop: 6,
-                    padding: 12,
-                    background: "#f7f7f7",
-                    borderRadius: 6,
-                    minHeight: 40,
-                  }}
-                >
+                <div style={{ marginTop: 6, padding: 12, background: "#f7f7f7", borderRadius: 6, minHeight: 40 }}>
                   {appt.notes || "No customer notes"}
                 </div>
               </div>
@@ -795,40 +663,21 @@ export default function AdminPage() {
                   value={appt.officeNotes || ""}
                   onChange={(e) => {
                     const value = e.target.value;
-
                     setAppointments((current) =>
                       current.map((item) =>
-                        item.id === appt.id
-                          ? { ...item, officeNotes: value }
-                          : item
+                        item.id === appt.id ? { ...item, officeNotes: value } : item
                       )
                     );
                   }}
                   placeholder="Add internal notes here..."
                   rows={3}
-                  style={{
-                    marginTop: 6,
-                    width: "100%",
-                    padding: 10,
-                    boxSizing: "border-box",
-                    borderRadius: 6,
-                    border: "1px solid #ccc",
-                  }}
+                  style={{ marginTop: 6, width: "100%", padding: 10, boxSizing: "border-box", borderRadius: 6, border: "1px solid #ccc" }}
                 />
 
                 <button
                   type="button"
-                  onClick={() =>
-                    updateAppointment(appt.id, {
-                      officeNotes: appt.officeNotes || "",
-                    })
-                  }
-                  style={{
-                    marginTop: 8,
-                    padding: "8px 12px",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                  }}
+                  onClick={() => updateAppointment(appt.id, { officeNotes: appt.officeNotes || "" })}
+                  style={{ marginTop: 8, padding: "8px 12px", fontWeight: 700, cursor: "pointer" }}
                 >
                   Save Office Notes
                 </button>
@@ -836,9 +685,7 @@ export default function AdminPage() {
 
               <div style={{ marginTop: 18, fontSize: 12, color: "#666" }}>
                 Created: {String(appt.createdAt || "Unknown")}
-                {appt.statusUpdatedAt
-                  ? ` • Status Updated: ${String(appt.statusUpdatedAt)}`
-                  : ""}
+                {appt.statusUpdatedAt ? ` • Status Updated: ${String(appt.statusUpdatedAt)}` : ""}
                 {appt.archivedAt ? ` • Archived: ${String(appt.archivedAt)}` : ""}
               </div>
             </div>
