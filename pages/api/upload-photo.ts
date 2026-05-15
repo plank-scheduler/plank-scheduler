@@ -1,6 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import fs from "fs";
-import path from "path";
+import { put } from "@vercel/blob";
 
 export const config = {
   api: {
@@ -10,64 +9,67 @@ export const config = {
   },
 };
 
+type UploadResp =
+  | { ok: true; url: string }
+  | { ok: false; error: string };
+
+function safeFileName(name: string) {
+  return String(name || "upload.jpg")
+    .replace(/[^a-zA-Z0-9._-]/g, "-")
+    .slice(0, 120);
+}
+
+function base64ToBuffer(base64: string) {
+  const cleaned = String(base64 || "");
+  const parts = cleaned.split(",");
+  const data = parts.length > 1 ? parts[1] : cleaned;
+
+  return Buffer.from(data, "base64");
+}
+
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse
+  res: NextApiResponse<UploadResp>
 ) {
   if (req.method !== "POST") {
     return res.status(405).json({
       ok: false,
-      error: "Method not allowed",
+      error: "Method Not Allowed",
     });
   }
 
   try {
-    const { fileName, base64 } = req.body ?? {};
+    const { fileName, base64 } = req.body || {};
 
-    if (!fileName || !base64) {
+    if (!base64) {
       return res.status(400).json({
         ok: false,
-        error: "Missing file data",
+        error: "Missing photo data",
       });
     }
 
-    const matches = base64.match(/^data:(.+);base64,(.+)$/);
+    const cleanName = safeFileName(fileName);
+    const uniqueName = `booking-photos/${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}-${cleanName}`;
 
-    if (!matches) {
-      return res.status(400).json({
-        ok: false,
-        error: "Invalid image format",
-      });
-    }
+    const buffer = base64ToBuffer(base64);
 
-    const extension = path.extname(fileName) || ".jpg";
-
-    const safeName =
-      Date.now() +
-      "-" +
-      Math.random().toString(36).slice(2) +
-      extension;
-
-    const uploadsDir = path.join(process.cwd(), "public", "uploads");
-
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-
-    const filePath = path.join(uploadsDir, safeName);
-
-    fs.writeFileSync(filePath, matches[2], "base64");
+    const blob = await put(uniqueName, buffer, {
+      access: "public",
+      contentType: "image/jpeg",
+    });
 
     return res.status(200).json({
       ok: true,
-      url: `/uploads/${safeName}`,
+      url: blob.url,
     });
   } catch (err: any) {
-    console.error(err);
+    console.error("Blob photo upload failed:", err);
 
     return res.status(500).json({
       ok: false,
-      error: "Upload failed",
+      error: err.message || "Upload failed",
     });
   }
 }
