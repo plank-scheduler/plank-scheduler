@@ -33,6 +33,22 @@ function officeToAddress() {
   return process.env.NOTIFY_TO || process.env.SCHEDULER_TO || "office@plankpest.com";
 }
 
+function customerName(data: any) {
+  return data.customer?.name || data.name || "";
+}
+
+function customerPhone(data: any) {
+  return data.customer?.phone || data.phone || "";
+}
+
+function customerAddress(data: any) {
+  return data.customer?.address || data.address || "";
+}
+
+function customerEmail(data: any) {
+  return data.customer?.email || data.email || "";
+}
+
 function serviceSummary(data: any) {
   return [
     data.service ? `Pest Control: ${data.service}` : "",
@@ -64,10 +80,10 @@ async function sendOfficeEmail(data: any) {
 
   const text = `New booking request
 
-Name:    ${data.customer?.name || ""}
-Phone:   ${data.customer?.phone || ""}
-Address: ${data.customer?.address || ""}
-Email:   ${data.customer?.email || ""}
+Name:    ${customerName(data)}
+Phone:   ${customerPhone(data)}
+Address: ${customerAddress(data)}
+Email:   ${customerEmail(data)}
 
 Date: ${data.date || "—"}
 Preferred time: ${data.time || "—"}
@@ -90,15 +106,16 @@ Status: pending — please call/text/email to confirm with the customer.`;
 }
 
 async function sendCustomerEmail(data: any) {
-  const customerEmail = data.customer?.email;
+  const to = customerEmail(data);
 
-  if (!customerEmail) {
+  if (!to) {
+    console.warn("Customer confirmation skipped: no customer email found.");
     return null;
   }
 
   const subject = "We received your service request — Plank Termite & Pest Control";
 
-  const text = `Hello ${data.customer?.name || ""},
+  const text = `Hello ${customerName(data) || "there"},
 
 Thank you for contacting Plank Termite & Pest Control. We received your service request.
 
@@ -120,7 +137,7 @@ www.plankpest.com
 573-368-3333`;
 
   return await mailer().sendMail({
-    to: customerEmail,
+    to,
     from: fromAddress(),
     subject,
     text,
