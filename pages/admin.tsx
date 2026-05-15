@@ -23,53 +23,28 @@ type Appointment = {
     phone?: string;
     address?: string;
     email?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
   };
 };
 
 type ApiResp = {
-  ok: boolean;
+  ok?: boolean;
+  success?: boolean;
   count?: number;
   data?: Appointment[];
+  appointments?: Appointment[];
   error?: string;
-};
-
-const LABELS: Record<string, string> = {
-  "bed-bugs": "Bed Bugs",
-  fleas: "Fleas",
-  "carpet-beetles": "Carpet Beetles",
-  termites: "Termites",
-  mosquitoes: "Mosquitoes",
-  rodents: "Rodents",
-  spiders: "Spiders",
-  ants: "Ants",
-  wasps: "Wasps",
-  "cluster-fly": "Cluster Fly",
-  "german-cockroach": "German Cockroach",
-  "smokybrown-cockroach": "Smokybrown Cockroach",
-
-  initial: "Initial Service",
-  monthly: "Monthly",
-  quarterly: "Quarterly",
-  "tri-annual": "Tri-Annual",
-  annual: "Annual",
-
-  "remove-replace-insulation": "Remove & Replace Insulation",
-  "rodent-contaminated-insulation": "Rodent Contaminated Insulation",
-  "seasonal-lawn-care": "Seasonal Lawn Care",
-  "lawn-mowing": "Lawn Mowing",
-  "fertilization-weed-control": "Fertilization & Weed Control",
-
-  "holiday-removal": "Holiday Light Removal",
-  "holiday-repair": "Holiday Light Repair",
-  "tree-shrub-lighting": "Tree & Shrub Lighting",
-  "commercial-holiday": "Commercial Holiday Lighting",
 };
 
 const STATUSES = ["New", "Contacted", "Scheduled", "Completed", "Cancelled"];
 
 function label(value?: string) {
   if (!value) return "None selected";
-  return LABELS[value] || value;
+  return value
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function prettyDate(date?: string) {
@@ -81,6 +56,15 @@ function prettyDate(date?: string) {
 
 function getStatus(appt: Appointment) {
   return appt.status || "New";
+}
+
+function normalizePhone(phone?: string) {
+  return String(phone || "").replace(/\D/g, "");
+}
+
+function csvSafe(value: any) {
+  const text = String(value ?? "");
+  return `"${text.replace(/"/g, '""')}"`;
 }
 
 function statusColor(status: string) {
@@ -134,15 +118,6 @@ function priorityInfo(appt: Appointment) {
   return { label: "Normal", color: "#555" };
 }
 
-function normalizePhone(phone?: string) {
-  return String(phone || "").replace(/\D/g, "");
-}
-
-function csvSafe(value: any) {
-  const text = String(value ?? "");
-  return `"${text.replace(/"/g, '""')}"`;
-}
-
 export default function AdminPage() {
   const [password, setPassword] = useState("");
   const [unlocked, setUnlocked] = useState(false);
@@ -170,11 +145,15 @@ export default function AdminPage() {
 
       const j: ApiResp = await r.json();
 
-      if (!j.ok) {
+      const isOk = j.ok === true || j.success === true;
+
+      if (!isOk) {
         throw new Error(j.error || "Could not load appointments");
       }
 
-      setAppointments(j.data || []);
+      const incoming = j.data || j.appointments || [];
+
+      setAppointments(incoming);
       setUnlocked(true);
       setLastRefreshed(new Date().toLocaleTimeString());
     } catch (err: any) {
@@ -410,7 +389,9 @@ export default function AdminPage() {
           {loading ? "Loading..." : "Login"}
         </button>
 
-        {error ? <p style={{ color: "crimson", fontWeight: 700 }}>{error}</p> : null}
+        {error ? (
+          <p style={{ color: "crimson", fontWeight: 700 }}>{error}</p>
+        ) : null}
       </main>
     );
   }
@@ -597,7 +578,9 @@ export default function AdminPage() {
                   <div style={{ marginTop: 8 }}>
                     📞{" "}
                     {appt.customer?.phone ? (
-                      <a href={`tel:${appt.customer.phone}`}>{appt.customer.phone}</a>
+                      <a href={`tel:${appt.customer.phone}`}>
+                        {appt.customer.phone}
+                      </a>
                     ) : (
                       "N/A"
                     )}
@@ -614,7 +597,9 @@ export default function AdminPage() {
                     )}
                   </div>
 
-                  <div style={{ marginTop: 4 }}>📍 {appt.customer?.address || "No address"}</div>
+                  <div style={{ marginTop: 4 }}>
+                    📍 {appt.customer?.address || "No address"}
+                  </div>
                 </div>
 
                 <div style={{ textAlign: "right" }}>
@@ -647,11 +632,15 @@ export default function AdminPage() {
               </div>
 
               <div style={{ marginBottom: 14 }}>
-                <label style={{ fontWeight: 700, marginRight: 8 }}>Status:</label>
+                <label style={{ fontWeight: 700, marginRight: 8 }}>
+                  Status:
+                </label>
 
                 <select
                   value={status}
-                  onChange={(e) => updateAppointment(appt.id, { status: e.target.value })}
+                  onChange={(e) =>
+                    updateAppointment(appt.id, { status: e.target.value })
+                  }
                   style={{ padding: 8 }}
                 >
                   {STATUSES.map((s) => (
@@ -663,7 +652,9 @@ export default function AdminPage() {
 
                 <button
                   type="button"
-                  onClick={() => updateAppointment(appt.id, { archived: !appt.archived })}
+                  onClick={() =>
+                    updateAppointment(appt.id, { archived: !appt.archived })
+                  }
                   style={{
                     marginLeft: 10,
                     padding: "8px 10px",
@@ -807,7 +798,9 @@ export default function AdminPage() {
 
                     setAppointments((current) =>
                       current.map((item) =>
-                        item.id === appt.id ? { ...item, officeNotes: value } : item
+                        item.id === appt.id
+                          ? { ...item, officeNotes: value }
+                          : item
                       )
                     );
                   }}
@@ -842,9 +835,11 @@ export default function AdminPage() {
               </div>
 
               <div style={{ marginTop: 18, fontSize: 12, color: "#666" }}>
-                Created: {appt.createdAt || "Unknown"}
-                {appt.statusUpdatedAt ? ` • Status Updated: ${appt.statusUpdatedAt}` : ""}
-                {appt.archivedAt ? ` • Archived: ${appt.archivedAt}` : ""}
+                Created: {String(appt.createdAt || "Unknown")}
+                {appt.statusUpdatedAt
+                  ? ` • Status Updated: ${String(appt.statusUpdatedAt)}`
+                  : ""}
+                {appt.archivedAt ? ` • Archived: ${String(appt.archivedAt)}` : ""}
               </div>
             </div>
           );
