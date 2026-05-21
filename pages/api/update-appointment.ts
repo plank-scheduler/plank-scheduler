@@ -1,7 +1,15 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { initializeDatabase, pool } from "@/lib/db";
 
-const VALID_STATUSES = ["New", "Contacted", "Scheduled", "Completed", "Cancelled"];
+const VALID_STATUSES = [
+  "New",
+  "Contacted",
+  "Responded",
+  "Scheduled",
+  "Completed",
+  "Cancelled",
+  "Archived",
+];
 
 function checkAdminPassword(req: NextApiRequest) {
   const expected = process.env.ADMIN_PASSWORD;
@@ -22,6 +30,7 @@ export default async function handler(
   if (req.method !== "POST") {
     return res.status(405).json({
       ok: false,
+      success: false,
       error: "Method Not Allowed",
     });
   }
@@ -29,6 +38,7 @@ export default async function handler(
   if (!checkAdminPassword(req)) {
     return res.status(401).json({
       ok: false,
+      success: false,
       error: "Unauthorized",
     });
   }
@@ -41,6 +51,7 @@ export default async function handler(
     if (!id) {
       return res.status(400).json({
         ok: false,
+        success: false,
         error: "Missing appointment id",
       });
     }
@@ -50,6 +61,7 @@ export default async function handler(
 
       return res.status(200).json({
         ok: true,
+        success: true,
         deleted: true,
       });
     }
@@ -58,6 +70,7 @@ export default async function handler(
       if (!VALID_STATUSES.includes(status)) {
         return res.status(400).json({
           ok: false,
+          success: false,
           error: "Invalid status",
         });
       }
@@ -108,6 +121,7 @@ export default async function handler(
     if (!result.rows.length) {
       return res.status(404).json({
         ok: false,
+        success: false,
         error: "Appointment not found",
       });
     }
@@ -116,6 +130,7 @@ export default async function handler(
 
     return res.status(200).json({
       ok: true,
+      success: true,
       appointment: {
         id: String(row.id),
         createdAt: row.created_at,
@@ -152,6 +167,7 @@ export default async function handler(
 
     return res.status(500).json({
       ok: false,
+      success: false,
       error: err.message || "Server error",
     });
   }
