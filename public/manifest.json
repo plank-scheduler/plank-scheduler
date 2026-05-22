@@ -1,22 +1,19 @@
 {
-  "name": "Plank Pest Control Scheduler",
-  "short_name": "Plank Scheduler",
-  "description": "Schedule pest control, insulation, lawn care, and holiday lighting services.",
-  "start_url": "/booking",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#166534",
-  "orientation": "portrait",
+  "name": "Plank Pest Scheduler",
+  "short_name": "Plank Pest",
   "icons": [
     {
-      "src": "/plank-logo.jpg",
+      "src": "/icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/jpeg"
+      "type": "image/png"
     },
     {
-      "src": "/plank-logo.jpg",
+      "src": "/icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/jpeg"
+      "type": "image/png"
     }
-  ]
+  ],
+  "theme_color": "#000000",
+  "background_color": "#ffffff",
+  "display": "standalone"
 }
