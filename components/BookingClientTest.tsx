@@ -302,7 +302,7 @@ export default function BookingClient() {
 
       <div style={{ textAlign: "center", marginBottom: 18 }}>
         <div style={{ fontSize: 20, fontWeight: 700, color: "#1f7a34" }}>
-          New! Insulation, Lawn Care & Holiday / Seasonal Lighting Now Available
+         We’re More Than Pest Control — Ask About Our Insulation, Lawn Care, and Holiday Lighting Services!
         </div>
         <div style={{ fontSize: 14 }}>
           Energy savings • Better comfort • Outdoor lighting • Healthier lawns
