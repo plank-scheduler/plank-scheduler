@@ -1,10 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { put } from "@vercel/blob";
+import { MAX_PHOTO_BYTES, PHOTO_TYPES } from "@/lib/booking-options";
 
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: "25mb",
+      sizeLimit: "4.4mb",
     },
   },
 };
@@ -23,7 +24,7 @@ export default async function handler(
 
     const { fileName, base64 } = req.body;
 
-    if (!fileName || !base64) {
+    if (typeof fileName !== 'string' || typeof base64 !== 'string' || !fileName || !base64) {
       return res.status(400).json({
         ok: false,
         error: "Missing file data",
@@ -41,8 +42,16 @@ export default async function handler(
 
     const mimeType = matches[1];
     const buffer = Buffer.from(matches[2], "base64");
+    if (!PHOTO_TYPES.includes(mimeType) || !buffer.length || buffer.length > MAX_PHOTO_BYTES) {
+      return res.status(400).json({ ok: false, error: 'Please use JPG, PNG or WebP photos, 3 MB or smaller.' });
+    }
+    const validImage = (mimeType === 'image/jpeg' && buffer[0] === 0xff && buffer[1] === 0xd8)
+      || (mimeType === 'image/png' && buffer.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))
+      || (mimeType === 'image/webp' && buffer.toString('ascii',0,4) === 'RIFF' && buffer.toString('ascii',8,12) === 'WEBP');
+    if (!validImage) return res.status(400).json({ ok: false, error: 'This file is not a supported photo.' });
 
-    const cleanName = `${Date.now()}-${fileName.replace(/\s+/g, "-")}`;
+    const extension = mimeType === 'image/jpeg' ? 'jpg' : mimeType === 'image/png' ? 'png' : 'webp';
+    const cleanName = `request-photos/${crypto.randomUUID()}.${extension}`;
 
     const blob = await put(cleanName, buffer, {
       access: "public",
@@ -58,7 +67,7 @@ export default async function handler(
 
     return res.status(500).json({
       ok: false,
-      error: err.message || "Upload failed",
+      error: "Photo upload failed. Please retry or remove the photo.",
     });
   }
 }

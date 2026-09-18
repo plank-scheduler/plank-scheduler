@@ -1,6 +1,7 @@
 ﻿import type { NextApiRequest, NextApiResponse } from "next";
 import { initializeDatabase, pool } from "@/lib/db";
 import { notifyNewRequest } from "@/lib/notifier";
+import { bookingSchema } from "@/lib/booking-validation";
 
 function getCustomer(data: any) {
   const customer = data.customer || {};
@@ -28,9 +29,11 @@ export default async function handler(
   }
 
   try {
+    const parsed = bookingSchema.safeParse({ ...req.body, customer: getCustomer(req.body || {}) });
+    if (!parsed.success) return res.status(400).json({ ok: false, error: parsed.error.issues[0].message });
     await initializeDatabase();
 
-    const data = req.body || {};
+    const data = parsed.data;
     const customer = getCustomer(data);
 
     const photoUrls = Array.isArray(data.photoUrls) ? data.photoUrls : [];
@@ -56,11 +59,12 @@ export default async function handler(
         office_notes,
         status,
         archived,
-        photo_urls
+        photo_urls,
+        vapor_barrier
       )
       VALUES (
         $1,$2,$3,$4,$5,$6,$7,
-        $8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
+        $8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20
       )
       RETURNING *
       `,
@@ -87,6 +91,7 @@ export default async function handler(
         "New",
         false,
         photoUrls,
+        data.vaporBarrier,
       ]
     );
 
@@ -115,6 +120,7 @@ export default async function handler(
       plan: row.plan,
       service: row.service,
       insulationService: row.insulation_service,
+      vaporBarrier: row.vapor_barrier,
       lawnCare: row.lawn_care,
       holidayLighting: row.holiday_lighting,
       notes: row.notes,
@@ -126,7 +132,7 @@ export default async function handler(
 
     return res.status(500).json({
       ok: false,
-      error: err.message || "Unknown server error",
+      error: "We couldn’t confirm your request. Please call 573-368-3333 before trying again.",
     });
   }
 }
