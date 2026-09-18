@@ -51,8 +51,9 @@ function customerEmail(data: any) {
 
 function serviceSummary(data: any) {
   return [
-    data.service ? `Pest Control: ${data.service}` : "",
+    data.service ? `Pest Control / Inspections: ${data.service}` : "",
     data.insulationService ? `Insulation: ${data.insulationService}` : "",
+    data.vaporBarrier ? `Vapor Barriers: ${data.vaporBarrier}` : "",
     data.lawnCare ? `Lawn Care: ${data.lawnCare}` : "",
     data.holidayLighting ? `Holiday / Seasonal Lighting: ${data.holidayLighting}` : "",
   ]
@@ -64,6 +65,7 @@ async function sendOfficeEmail(data: any) {
   const subject = `New booking request: ${[
     data.service ||
       data.insulationService ||
+      data.vaporBarrier ||
       data.lawnCare ||
       data.holidayLighting ||
       "service",

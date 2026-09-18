@@ -45,6 +45,7 @@ export default async function handler(
 
       service: row.service || "",
       insulationService: row.insulation_service || "",
+      vaporBarrier: row.vapor_barrier || "",
       lawnCare: row.lawn_care || "",
       holidayLighting: row.holiday_lighting || "",
 

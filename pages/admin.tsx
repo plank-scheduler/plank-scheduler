@@ -13,6 +13,7 @@ type Appointment = {
   };
   service?: string;
   insulationService?: string;
+  vaporBarrier?: string;
   lawnCare?: string;
   holidayLighting?: string;
   plan?: string;
@@ -237,7 +238,7 @@ export default function AdminPage() {
           <br />
 
           <div>
-            <strong>Pest Control:</strong>{" "}
+            <strong>Pest Control / Inspections:</strong>{" "}
             {appointment.service || "None selected"}
           </div>
 
@@ -245,6 +246,8 @@ export default function AdminPage() {
             <strong>Insulation:</strong>{" "}
             {appointment.insulationService || "None selected"}
           </div>
+
+          {appointment.vaporBarrier && <div><strong>Vapor Barriers:</strong> {appointment.vaporBarrier}</div>}
 
           <div>
             <strong>Lawn Care:</strong>{" "}

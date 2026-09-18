@@ -31,7 +31,7 @@ export default function Document() {
 
         <meta
           name="theme-color"
-          content="#1f7a34"
+          content="#234d3d"
         />
 
         <meta
