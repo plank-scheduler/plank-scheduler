@@ -1,5 +1,9 @@
 {
-  "name": "Plank Pest Scheduler",
+  "id": "/booking",
+  "start_url": "/booking?utm_source=installed&utm_medium=app",
+  "scope": "/",
+  "description": "Request service and free inspections from Plank Termite & Pest Control.",
+  "name": "Plank Service & Inspections",
   "short_name": "Plank Pest",
   "icons": [
     {
@@ -13,7 +17,7 @@
       "type": "image/png"
     }
   ],
-  "theme_color": "#000000",
-  "background_color": "#ffffff",
+  "theme_color": "#234d3d",
+  "background_color": "#f7f8f3",
   "display": "standalone"
 }
