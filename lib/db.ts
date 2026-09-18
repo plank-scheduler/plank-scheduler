@@ -58,6 +58,11 @@ export async function initializeDatabase() {
 
   await pool.query(`
     ALTER TABLE appointments
+    ADD COLUMN IF NOT EXISTS vapor_barrier TEXT DEFAULT '';
+  `);
+
+  await pool.query(`
+    ALTER TABLE appointments
     ADD COLUMN IF NOT EXISTS office_notes TEXT DEFAULT '';
   `);
 

@@ -31,6 +31,7 @@ export const SERVICE_GROUPS = [
   { group: "Ants", options: [
       { value: "carpenter-ants", label: "Carpenter Ants" },
       { value: "nuisance-ants",  label: "Nuisance Ants" },
+      { value: "odorous-house-ants", label: "Odorous House Ants" },
       { value: "pavement-ants",  label: "Pavement Ants" },
       { value: "pharaoh-ants",   label: "Pharaoh Ants" }
   ]},
@@ -58,11 +59,13 @@ export const SERVICE_GROUPS = [
       { value: "house-fly",   label: "House Fly" }
   ]},
   { group: "Occasional Invaders", options: [
+      { value: "clover-mites", label: "Clover Mites" },
       { value: "asian-lady-beetles", label: "Asian Lady Beetles" },
       { value: "boxelder-bugs",      label: "Boxelder Bugs" },
       { value: "centipedes",         label: "Centipedes" },
       { value: "crickets-camel-cave",label: "Crickets (Camel/Cave)" },
       { value: "earwigs",            label: "Earwigs" },
+      { value: "ground-beetles",     label: "Ground Beetles" },
       { value: "millipedes",         label: "Millipedes" },
       { value: "silverfish",         label: "Silverfish" },
       { value: "springtails",        label: "Springtails" },
@@ -74,7 +77,12 @@ export const SERVICE_GROUPS = [
   { group: "Pantry Pests", options: [
       { value: "flour-beetles",          label: "Flour Beetles" },
       { value: "indianmeal-moth",        label: "Indianmeal Moth" },
-      { value: "sawtoothed-grain-beetle",label: "Sawtoothed Grain Beetle" }
+      { value: "sawtoothed-grain-beetle",label: "Sawtoothed Grain Beetle" },
+      { value: "weevils", label: "Weevils" }
+  ]},
+  { group: "Fabric Pests", options: [
+      { value: "carpet-beetles", label: "Carpet Beetles" },
+      { value: "clothes-moths", label: "Clothes Moths" }
   ]},
   { group: "Rodents", options: [
       { value: "mice",  label: "Mice"  },
@@ -95,8 +103,12 @@ export const SERVICE_GROUPS = [
       { value: "yellowjackets",      label: "Yellowjackets" }
   ]},
   { group: "Termites & WDI", options: [
+      { value: "carpenter-ants",                    label: "Carpenter Ants" },
       { value: "carpenter-bees",                    label: "Carpenter Bees" },
       { value: "powder-post-beetles",              label: "Powder Post Beetles" },
+      { value: "old-house-borers",                  label: "Old House Borers" },
+      { value: "furniture-beetles",                 label: "Furniture Beetles (Wood-Boring Beetles)" },
+      { value: "unsure-wood-damage",                label: "Unsure — Wood Damage or Holes" },
       { value: "sentricon-1-termite-elimination-system", label: "Sentricon #1 Termite Elimination System" },
       { value: "sentricon-check",                  label: "Sentricon Check" },
       { value: "subterranean-termites",            label: "Subterranean Termites" },
@@ -112,6 +124,8 @@ export const SERVICE_GROUPS = [
       { value: "squirrels", label: "Squirrels" }
   ]},
   { group: "Yard Treatments", options: [
+      { value: "bagworm-treatment", label: "Bagworm Treatment" },
+      { value: "japanese-beetle-treatment", label: "Japanese Beetle Treatment" },
       { value: "yard-chiggers",      label: "Chiggers" },
       { value: "yard-fleas",         label: "Fleas" },
       { value: "yard-general-pests", label: "General Pests" },
@@ -160,4 +174,3 @@ export const SERVICE_GROUPS = [
 ];
   
 export const COMPANY_NAME = BRAND;
-
