@@ -5,6 +5,12 @@ import { CATEGORIES, PHONE, TIME_OPTIONS, photoError, selectedServices, todayISO
 import s from './ServiceBooking.module.css';
 
 type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
+declare global {
+  interface Window {
+    __plankSchedulerInstallPrompt?: InstallPrompt | null;
+    __plankSchedulerInstalled?: boolean;
+  }
+}
 const initialCustomer = { name: '', phone: '', email: '', address: '', city: '', state: 'MO', zip: '' };
 
 export default function ServiceBooking() {
@@ -25,6 +31,11 @@ export default function ServiceBooking() {
   const [install, setInstall] = useState<InstallPrompt | null>(null);
   const [installHelp, setInstallHelp] = useState(false);
   const [installed, setInstalled] = useState(false);
+  const [installOffer, setInstallOffer] = useState(false);
+  const [installBusy, setInstallBusy] = useState(false);
+  const [installMessage, setInstallMessage] = useState('');
+  const installLock = useRef(false);
+  const installDialog = useRef<HTMLDialogElement>(null);
   const [device, setDevice] = useState<'ios' | 'android' | 'desktop'>('desktop');
   const submitLock = useRef(false);
   const uploaded = useRef(new Map<File, string>());
@@ -35,15 +46,38 @@ export default function ServiceBooking() {
   const count = Object.values(selections).reduce((sum, list) => sum + list.length, 0) + (problem.trim() ? 1 : 0);
 
   useEffect(() => {
-    const onPrompt = (e: Event) => { e.preventDefault(); setInstall(e as InstallPrompt); };
-    const onInstalled = () => { setInstalled(true); setInstall(null); };
+    const onPrompt = (e: Event) => { e.preventDefault(); window.__plankSchedulerInstallPrompt = e as InstallPrompt; setInstall(e as InstallPrompt); };
+    const onInstalled = () => { setInstalled(true); setInstall(null); setInstallOffer(false); };
     window.addEventListener('beforeinstallprompt', onPrompt);
     window.addEventListener('appinstalled', onInstalled);
-    setInstalled(window.matchMedia('(display-mode: standalone)').matches);
+    const displayMode = window.matchMedia('(display-mode: standalone)');
+    const standalone = displayMode.matches || (navigator as Navigator & {standalone?:boolean}).standalone === true || window.__plankSchedulerInstalled === true;
+    setInstalled(standalone);
+    setInstall(window.__plankSchedulerInstallPrompt ?? null);
+    const onDisplayChange = () => { if (displayMode.matches) onInstalled(); else setInstalled(Boolean(window.__plankSchedulerInstalled || (navigator as Navigator & {standalone?:boolean}).standalone)); };
+    displayMode.addEventListener?.('change', onDisplayChange);
+    let dismissed = false;
+    try { dismissed = sessionStorage.getItem('plank-install-offer-dismissed') === '1'; } catch {}
+    if (!standalone && !dismissed) setInstallOffer(true);
     setDevice(/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ? 'ios' : /Android/.test(navigator.userAgent) ? 'android' : 'desktop');
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
-    return () => { window.removeEventListener('beforeinstallprompt', onPrompt); window.removeEventListener('appinstalled', onInstalled); };
+    return () => { window.removeEventListener('beforeinstallprompt', onPrompt); window.removeEventListener('appinstalled', onInstalled); displayMode.removeEventListener?.('change', onDisplayChange); };
   }, []);
+  useEffect(() => {
+    const dialog = installDialog.current;
+    if (installOffer && !installed && dialog && !dialog.open) {
+      if (typeof dialog.showModal === 'function') dialog.showModal();
+      else dialog.setAttribute('open', '');
+    }
+    if ((!installOffer || installed) && dialog?.open) {
+      if (typeof dialog.close === 'function') dialog.close();
+      else dialog.removeAttribute('open');
+    }
+  }, [installOffer, installed]);
+  function dismissInstallOffer() {
+    setInstallOffer(false); setInstallHelp(false);
+    try { sessionStorage.setItem('plank-install-offer-dismissed','1'); } catch {}
+  }
   useEffect(() => { if (error) errorRef.current?.focus(); }, [error]);
   useEffect(() => { if (receipt) receiptRef.current?.focus(); }, [receipt]);
 
@@ -62,10 +96,28 @@ export default function ServiceBooking() {
     document.getElementById('services')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   async function addToDevice() {
-    if (install) {
-      try { await install.prompt(); await install.userChoice; setInstall(null); }
-      catch { setInstallHelp(true); }
-    } else setInstallHelp(!installHelp);
+    if (installLock.current || installed) return;
+    setInstallOffer(true);
+    setInstallHelp(true);
+    const pending = window.__plankSchedulerInstallPrompt ?? install;
+    if (!pending) return;
+    // Consume the event before awaiting; a dismissed or rejected event cannot be reused.
+    window.__plankSchedulerInstallPrompt = null;
+    setInstall(null);
+    installLock.current = true;
+    setInstallBusy(true);
+    setInstallMessage('');
+    try {
+      await pending.prompt();
+      const choice = await pending.userChoice;
+      if (choice.outcome === 'accepted') dismissInstallOffer();
+      else setInstallMessage('Installation was dismissed. You can still use the browser menu below.');
+    } catch {
+      setInstallMessage('The browser could not open the install prompt. Follow the steps below.');
+    } finally {
+      installLock.current = false;
+      setInstallBusy(false);
+    }
   }
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -109,12 +161,28 @@ export default function ServiceBooking() {
 
   return <div className={s.page}>
     <Head><title>Request Service & Free Inspections | Plank Termite & Pest Control</title><meta name="description" content="Request pest control, Sentricon, WDI reports, wildlife service, insulation, vapor barriers and lighting in Central Missouri. Free termite, moisture and insulation inspections available."/><meta name="viewport" content="width=device-width, initial-scale=1"/></Head>
+    <dialog ref={installDialog} className={s.installDialog} aria-labelledby="install-title" aria-describedby="install-description" onCancel={dismissInstallOffer}>
+      <p className={s.eyebrow}>PLANK TERMITE &amp; PEST CONTROL</p>
+      <h2 id="install-title">Add Plank to your device.</h2>
+      <p id="install-description">Keep our scheduler on your phone, tablet or computer so you can request service whenever you need us.</p>
+      <button autoFocus className={s.primary} type="button" onClick={addToDevice} disabled={installBusy}>{installBusy?'Opening…':device==='android'?'Install App':install?'Install scheduler':'Add to my device'} <span aria-hidden="true">↗</span></button>
+      {installHelp && <div className={s.installSteps} role="status">
+        {installMessage && <p>{installMessage}</p>}
+        {device==='ios' && <><h3>On iPhone or iPad</h3><ol><li>Open this page in Safari.</li><li>Tap Share, then Add to Home Screen.</li><li>Turn on Open as Web App if shown, then tap Add.</li></ol></>}
+        {device==='android' && <><h3>Install on Android</h3><ol><li>Open this page in <strong>Chrome</strong>.</li><li>Tap the <strong>⋮ three-dot menu</strong>.</li><li>Choose <strong>Install app</strong> or <strong>Add to Home screen</strong>, then confirm. Some versions show <strong>Install and create shortcut → Install</strong>.</li></ol><p>Opened by a QR scanner or another app? Use its menu to <strong>Open in Chrome</strong> or <strong>Open in browser</strong>. Then tap Install App here again.</p><p>In Samsung Internet, use <strong>Menu → Add page to → Home screen</strong>, or open this page in Chrome.</p></>}
+        {device==='desktop' && <><h3>On your computer</h3><p>Use Chrome or Edge’s install option in the address bar or menu, or bookmark this page.</p></>}
+        <p>You approve adding it. An internet connection is needed to send a service request.</p>
+      </div>}
+      <button className={s.installLater} type="button" onClick={dismissInstallOffer}>Continue to scheduler</button>
+      <p className={s.installFootnote}>No account or payment needed. You can add it later using “Add to my device.”</p>
+    </dialog>
     <a className={s.skip} href="#request">Skip to service request</a>
     <header className={s.header}>
       <a href="https://plankpest.com/" aria-label="Plank Termite and Pest Control home" className={s.brand}><img src="/plank-logo.jpg" width="281" height="217" alt="Plank Termite & Pest Control LLC"/></a>
       <div className={s.headerRight}><span>LOCAL PEOPLE. PERSONAL SERVICE.</span><a href="tel:5733683333">{PHONE} <span aria-hidden="true">↗</span></a></div>
     </header>
     <main id="request">
+      {!installed && <section className={s.installBanner} aria-label="Install the Plank app"><div><strong>Keep Plank on your phone</strong><p>Install our service app for easy access next time.</p></div><button type="button" className={s.secondary} onClick={addToDevice} disabled={installBusy}>{installBusy?'Opening…':'Install App'} <span aria-hidden="true">↗</span></button></section>}
       <section className={s.hero}>
         <div className={s.heroCopy}><p className={s.eyebrow}>YOUR CENTRAL MISSOURI SERVICE TEAM</p><h1>A better place<br/>starts at home.</h1><p className={s.intro}>From pests to protection to a brighter holiday season. Tell us what you need—we’ll help with the next step.</p>
           <div className={s.heroActions}><button type="button" className={s.primary} onClick={startInspection}>Request a free inspection <span aria-hidden="true">↗</span></button><div className={s.contactLinks}><span>Prefer to talk or text?</span><a href="tel:5733683333">Call us →</a><a href="sms:5733683333">Text us →</a></div></div>
