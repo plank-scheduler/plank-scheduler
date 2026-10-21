@@ -4,6 +4,9 @@ export default function Document() {
   return (
     <Html lang="en">
       <Head>
+        {/* Capture the install event before the client-only booking component mounts. */}
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script src="/install-bootstrap.js" />
         <meta
           name="application-name"
           content="Plank Pest"
