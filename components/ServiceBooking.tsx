@@ -201,7 +201,7 @@ export default function ServiceBooking({referral=null,referralWarning=false}:{re
     <dialog ref={installDialog} className={s.installDialog} aria-labelledby="install-title" aria-describedby="install-description" onCancel={dismissInstallOffer}>
       <p className={s.eyebrow}>PLANK TERMITE &amp; PEST CONTROL</p>
       <h2 id="install-title">Keep Plank one tap away.</h2>
-      <p id="install-description">Request an appointment or contact us right from your device—no searching for our website or phone number.</p>
+      <p id="install-description">Request an appointment or contact us right on your phone or desktop—no searching for our website or phone number.</p>
       <button autoFocus className={s.primary} type="button" onClick={addToDevice} disabled={installBusy}>{installBusy?'Opening…':'Install Plank App'} <span aria-hidden="true">↗</span></button>
       {installHelp && <div className={s.installSteps} role="status">
         {installMessage && <p>{installMessage}</p>}
