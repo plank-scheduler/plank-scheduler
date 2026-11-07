@@ -34,7 +34,7 @@ export default function Document() {
 
         <meta
           name="theme-color"
-          content="#234d3d"
+          content="#111111"
         />
 
         <meta
@@ -44,7 +44,8 @@ export default function Document() {
 
         <link
           rel="manifest"
-          href="/manifest.json"
+          href="/api/referral-manifest"
+          crossOrigin="use-credentials"
         />
 
         <link

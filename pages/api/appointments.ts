@@ -2,6 +2,7 @@
 import { initializeDatabase, pool } from "@/lib/db";
 import { notifyNewRequest } from "@/lib/notifier";
 import { bookingSchema } from "@/lib/booking-validation";
+import {captureRequestReferral} from '@/lib/referrals';
 
 function getCustomer(data: any) {
   const customer = data.customer || {};
@@ -95,6 +96,8 @@ export default async function handler(
       ]
     );
 
+    let referralRecorded=false;
+    try{referralRecorded=await captureRequestReferral(req,result.rows[0].id,customer);}catch{console.error('Optional referral association unavailable; service request is saved.');}
     let messageId: string | null = null;
 
     try {
@@ -114,6 +117,7 @@ export default async function handler(
     return res.status(200).json({
       ok: true,
       id: String(row.id),
+      referralRecorded,
       messageId,
       date: row.date,
       time: row.time,
