@@ -44,7 +44,7 @@ export default function ServiceBooking({referral=null,referralWarning=false}:{re
   const errorRef = useRef<HTMLDivElement>(null);
   const receiptRef = useRef<HTMLDivElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const inspectionFocusPending = useRef(false);
+  const categoryToReveal = useRef<string | null>(null);
   const selected = selectedServices(selections);
   if (problem.trim()) selected.service = [selected.service, 'Help with an unidentified pest or other problem'].filter(Boolean).join('; ');
   const count = Object.values(selections).reduce((sum, list) => sum + list.length, 0) + (problem.trim() ? 1 : 0);
@@ -92,14 +92,16 @@ export default function ServiceBooking({referral=null,referralWarning=false}:{re
     return () => window.removeEventListener('beforeunload', warnBeforeLeaving);
   }, [hasUnsentDetails]);
   useEffect(() => {
-    if (!inspectionFocusPending.current) return;
-    inspectionFocusPending.current = false;
-    const options = document.getElementById('options-inspection');
+    const category = categoryToReveal.current;
+    if (!category) return;
+    categoryToReveal.current = null;
+    const options = document.getElementById(`options-${category}`);
     options?.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true });
     options?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
   }, [active]);
 
   function toggleCategory(id: string) {
+    categoryToReveal.current = active.includes(id) ? null : id;
     setActive(current => current.includes(id) ? current.filter(x => x !== id) : [...current, id]);
   }
   function toggleOption(category: string, value: string) {
@@ -107,7 +109,7 @@ export default function ServiceBooking({referral=null,referralWarning=false}:{re
     setSelections({ ...selections, [category]: list.includes(value) ? list.filter(x => x !== value) : [...list, value] });
   }
   function startInspection() {
-    inspectionFocusPending.current = true;
+    categoryToReveal.current = 'inspection';
     setActive(current => current.includes('inspection') ? [...current] : [...current, 'inspection']);
   }
   function updateCustomer(field: keyof typeof initialCustomer, input: HTMLInputElement) {
