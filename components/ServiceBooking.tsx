@@ -201,8 +201,8 @@ export default function ServiceBooking({referral=null,referralWarning=false}:{re
     <dialog ref={installDialog} className={s.installDialog} aria-labelledby="install-title" aria-describedby="install-description" onCancel={dismissInstallOffer}>
       <p className={s.eyebrow}>PLANK TERMITE &amp; PEST CONTROL</p>
       <h2 id="install-title">Keep Plank one tap away.</h2>
-      <p id="install-description">Install the Plank App for quick access and appointment scheduling—right on your phone or desktop.</p>
-      <button autoFocus className={s.primary} type="button" onClick={addToDevice} disabled={installBusy}>{installBusy?'Opening…':'Install Plank App'} <span aria-hidden="true">↗</span></button>
+      <p id="install-description">Request an appointment or contact us right on your phone or desktop—no searching for our website or phone number.</p>
+      <button autoFocus className={s.primary} type="button" onClick={addToDevice} disabled={installBusy}>{installBusy?'Opening…':'Install Plank App for Quick Appointments'} <span aria-hidden="true">↗</span></button>
       {installHelp && <div className={s.installSteps} role="status">
         {installMessage && <p>{installMessage}</p>}
         {device==='ios' && <><h3>On iPhone or iPad</h3><ol><li>Open this page in Safari.</li><li>Tap Share, then Add to Home Screen.</li><li>Turn on Open as Web App if shown, then tap Add.</li></ol></>}
@@ -210,7 +210,7 @@ export default function ServiceBooking({referral=null,referralWarning=false}:{re
         {device==='desktop' && <><h3>On your computer</h3><p>Use Chrome or Edge’s install option in the address bar or menu, or bookmark this page.</p></>}
         <p>You approve adding it. An internet connection is needed to send a service request.</p>
       </div>}
-      <button className={s.installLater} type="button" onClick={dismissInstallOffer}>Schedule Appointment</button>
+      <button className={s.installLater} type="button" onClick={dismissInstallOffer}>Schedule Appointment Now!</button>
       <p className={s.installFootnote}>No account or payment needed. Installing the app is optional.</p>
     </dialog>
     <a className={s.skip} href="#service-request">Skip to service request</a>
