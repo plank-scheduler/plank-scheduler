@@ -39,7 +39,7 @@ export default function Document() {
 
         <meta
           name="description"
-          content="Plank Pest Control Online Scheduler"
+          content="Schedule service with Plank Termite & Pest Control"
         />
 
         <link
